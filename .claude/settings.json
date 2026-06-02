@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx next *)",
+      "Bash(npx @next/codemod@canary middleware-to-proxy .)",
+      "Bash(npx @next/codemod@canary middleware-to-proxy . --force)"
+    ]
+  }
+}
