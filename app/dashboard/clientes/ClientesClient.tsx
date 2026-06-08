@@ -24,6 +24,8 @@ const schema = z.object({
   licencia_conducir: z.string().min(4, 'Requerido'),
   ciudad: z.string().min(2, 'Requerido'),
   pais: z.string().min(2, 'Requerido'),
+  fecha_nacimiento: z.string().default(''),
+  direccion: z.string().default(''),
 });
 
 interface Props {
@@ -48,23 +50,24 @@ export default function ClientesClient({ clientes: initialClientes }: Props) {
   const [error, setError] = React.useState('');
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<ClienteFormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as any,
     defaultValues: {
       nombre: '', apellido: '', email: '', telefono: '',
       dni_pasaporte: '', licencia_conducir: '', ciudad: '', pais: 'Argentina',
+      fecha_nacimiento: '', direccion: '',
     },
   });
 
   const abrirCrear = () => {
     setEditando(null);
-    reset({ nombre: '', apellido: '', email: '', telefono: '', dni_pasaporte: '', licencia_conducir: '', ciudad: '', pais: 'Argentina' });
+    reset({ nombre: '', apellido: '', email: '', telefono: '', dni_pasaporte: '', licencia_conducir: '', ciudad: '', pais: 'Argentina', fecha_nacimiento: '', direccion: '' });
     setError('');
     setDialogOpen(true);
   };
 
   const abrirEditar = (c: Cliente) => {
     setEditando(c);
-    reset({ nombre: c.nombre, apellido: c.apellido, email: c.email, telefono: c.telefono, dni_pasaporte: c.dni_pasaporte, licencia_conducir: c.licencia_conducir, ciudad: c.ciudad, pais: c.pais });
+    reset({ nombre: c.nombre, apellido: c.apellido, email: c.email, telefono: c.telefono, dni_pasaporte: c.dni_pasaporte, licencia_conducir: c.licencia_conducir, ciudad: c.ciudad, pais: c.pais, fecha_nacimiento: c.fecha_nacimiento ?? '', direccion: c.direccion ?? '' });
     setError('');
     setDialogOpen(true);
   };
@@ -243,11 +246,22 @@ export default function ClientesClient({ clientes: initialClientes }: Props) {
                 <TextField {...field} label="País" fullWidth size="small" error={!!errors.pais} helperText={errors.pais?.message} />
               )} />
             </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Controller name="fecha_nacimiento" control={control} render={({ field }) => (
+                <TextField {...field} label="Fecha de nacimiento" type="date" fullWidth size="small"
+                  slotProps={{ inputLabel: { shrink: true } }} />
+              )} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Controller name="direccion" control={control} render={({ field }) => (
+                <TextField {...field} label="Dirección" fullWidth size="small" />
+              )} />
+            </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setDialogOpen(false)} disabled={loading}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={loading} sx={{ fontWeight: 600 }}>
+          <Button variant="contained" onClick={handleSubmit(onSubmit as any)} disabled={loading} sx={{ fontWeight: 600 }}>
             {loading ? 'Guardando...' : editando ? 'Guardar cambios' : 'Agregar'}
           </Button>
         </DialogActions>

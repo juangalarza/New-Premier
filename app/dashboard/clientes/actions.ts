@@ -25,11 +25,18 @@ export type ClienteFormData = {
   licencia_conducir: string;
   ciudad: string;
   pais: string;
+  fecha_nacimiento: string;
+  direccion: string;
 };
 
 export async function crearCliente(data: ClienteFormData) {
   const supabase = createAdminClient();
-  const { error } = await supabase.from('clientes').insert({ ...data, tenant_id: TENANT_ID } as never);
+  const { error } = await supabase.from('clientes').insert({
+    ...data,
+    tenant_id: TENANT_ID,
+    fecha_nacimiento: data.fecha_nacimiento || null,
+    direccion: data.direccion || null,
+  } as never);
   if (error) throw new Error(error.message);
   revalidatePath('/dashboard/clientes');
 }
@@ -38,7 +45,11 @@ export async function actualizarCliente(id: string, data: ClienteFormData) {
   const supabase = createAdminClient();
   const { error } = await supabase
     .from('clientes')
-    .update(data as never)
+    .update({
+      ...data,
+      fecha_nacimiento: data.fecha_nacimiento || null,
+      direccion: data.direccion || null,
+    } as never)
     .eq('id', id)
     .eq('tenant_id', TENANT_ID);
   if (error) throw new Error(error.message);

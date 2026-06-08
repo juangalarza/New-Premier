@@ -9,7 +9,7 @@ import {
   DashboardOutlined, CalendarMonthOutlined, DirectionsCarOutlined,
   PeopleAltOutlined, SettingsOutlined, LogoutOutlined, CarRental,
   MonetizationOnOutlined, ReceiptLongOutlined, MenuBookOutlined,
-  BarChartOutlined, PeopleOutlined, BuildOutlined,
+  BarChartOutlined, PeopleOutlined, BuildOutlined, StoreOutlined,
 } from '@mui/icons-material';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabase/client';
@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { text: 'Reservas',      icon: <ReceiptLongOutlined />,    path: '/dashboard/reservas' },
   { text: 'Vehículos',     icon: <DirectionsCarOutlined />,  path: '/dashboard/vehiculos' },
   { text: 'Mantenimiento', icon: <BuildOutlined />,          path: '/dashboard/mantenimiento' },
+  { text: 'Sucursales',   icon: <StoreOutlined />,           path: '/dashboard/sucursales' },
   { text: 'Clientes',      icon: <PeopleAltOutlined />,      path: '/dashboard/clientes' },
   { text: 'Tarifas',       icon: <MonetizationOnOutlined />, path: '/dashboard/tarifas' },
   { text: 'Agenda Diaria', icon: <MenuBookOutlined />,       path: '/dashboard/agenda' },

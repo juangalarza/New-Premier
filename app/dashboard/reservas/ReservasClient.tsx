@@ -6,7 +6,7 @@ import {
   TableBody, Chip, IconButton, Tooltip, TextField, MenuItem, InputAdornment,
   Dialog, DialogTitle, DialogContent, DialogActions, Grid, Alert,
   FormControlLabel, Checkbox, Select, OutlinedInput, ListItemText,
-  Autocomplete,
+  Autocomplete, CircularProgress, Paper, List, ListItemButton,
 } from '@mui/material';
 import {
   AddOutlined, FileDownloadOutlined, SearchOutlined, ReceiptLongOutlined,
@@ -20,8 +20,9 @@ import ReservaDrawer from '@/components/admin/ReservaDrawer';
 import type { Cobertura, Adicional } from '@/types';
 import {
   type ReservaConRelaciones, type NuevaReservaData,
-  crearReserva, getVehiculosDisponibles, calcularCotizacion,
+  crearReserva, getVehiculosDisponibles, calcularCotizacion, buscarClientesPorDNI,
 } from './actions';
+import { crearCliente } from '@/app/dashboard/clientes/actions';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface Props {
@@ -52,6 +53,22 @@ function diasReserva(desde: string, hasta: string) {
   return Math.ceil((new Date(hasta).getTime() - new Date(desde).getTime()) / 86400000);
 }
 
+// ─── Tipo resultado búsqueda cliente ─────────────────────────────────────────
+type ClienteBuscado = { id: string; nombre: string; apellido: string; dni_pasaporte: string; email: string };
+
+// ─── Schema mini dialog nuevo cliente ────────────────────────────────────────
+const miniClienteSchema = z.object({
+  nombre: z.string().min(2, 'Requerido'),
+  apellido: z.string().min(2, 'Requerido'),
+  dni_pasaporte: z.string().min(6, 'Requerido'),
+  email: z.string().email('Email inválido'),
+  telefono: z.string().min(8, 'Requerido'),
+  licencia_conducir: z.string().min(4, 'Requerido'),
+  ciudad: z.string().default(''),
+  pais: z.string().default('Argentina'),
+});
+type MiniClienteForm = z.infer<typeof miniClienteSchema>;
+
 // ─── Schema nueva reserva ─────────────────────────────────────────────────────
 const nuevaReservaSchema = z.object({
   cliente_id: z.string().uuid('Seleccioná un cliente'),
@@ -60,10 +77,11 @@ const nuevaReservaSchema = z.object({
   lugar_entrega: z.string().min(2, 'Requerido'),
   lugar_devolucion: z.string().min(2, 'Requerido'),
   numero_vuelo: z.string().default(''),
+  km_contratados: z.coerce.number().min(0).default(0),
   vehiculo_id: z.string().default(''),
   cobertura_id: z.string().default(''),
   adicional_ids: z.array(z.string()).default([]),
-  precio_base: z.coerce.number().min(0),
+  precio_base: z.coerce.number().min(1, 'Calculá el precio antes de continuar'),
   descuento_aplicado: z.coerce.number().min(0).default(0),
   observaciones: z.string().default(''),
   categoria_id: z.string().default(''),
@@ -83,19 +101,34 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
   const [error, setError] = React.useState('');
   const [vehiculosDisponibles, setVehiculosDisponibles] = React.useState<{ id: string; patente: string; modelo: string }[]>([]);
   const [cotizando, setCotizando] = React.useState(false);
+  const [dniInput, setDniInput] = React.useState('');
+  const [clientesBuscados, setClientesBuscados] = React.useState<ClienteBuscado[]>([]);
+  const [clienteSeleccionado, setClienteSeleccionado] = React.useState<ClienteBuscado | null>(null);
+  const [buscando, setBuscando] = React.useState(false);
+  const [miniDialogOpen, setMiniDialogOpen] = React.useState(false);
+  const [miniLoading, setMiniLoading] = React.useState(false);
+  const [miniError, setMiniError] = React.useState('');
+  const [dniDropdownOpen, setDniDropdownOpen] = React.useState(false);
 
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<NuevaReservaForm>({
     resolver: zodResolver(nuevaReservaSchema) as any,
     defaultValues: {
       cliente_id: '', fecha_entrega: '', fecha_devolucion: '', lugar_entrega: '',
-      lugar_devolucion: '', numero_vuelo: '', vehiculo_id: '', cobertura_id: '',
+      lugar_devolucion: '', numero_vuelo: '', km_contratados: 0, vehiculo_id: '', cobertura_id: '',
       adicional_ids: [], precio_base: 0, descuento_aplicado: 0, observaciones: '', categoria_id: '',
     },
+  });
+
+  const { control: miniCtrl, handleSubmit: miniHandleSubmit, reset: miniReset, formState: { errors: miniErrors } } = useForm<MiniClienteForm>({
+    resolver: zodResolver(miniClienteSchema) as any,
+    defaultValues: { nombre: '', apellido: '', dni_pasaporte: '', email: '', telefono: '', licencia_conducir: '', ciudad: '', pais: 'Argentina' },
   });
 
   const fechaEntrega = watch('fecha_entrega');
   const fechaDevolucion = watch('fecha_devolucion');
   const categoriaId = watch('categoria_id');
+  const precioBase = watch('precio_base');
+  const diasForm = fechaEntrega && fechaDevolucion ? diasReserva(fechaEntrega, fechaDevolucion) : 0;
 
   // Actualizar vehículos disponibles cuando cambian fechas
   React.useEffect(() => {
@@ -104,6 +137,40 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
       setVehiculosDisponibles(vs.map(v => ({ id: v.id, patente: v.patente, modelo: v.modelo })))
     );
   }, [fechaEntrega, fechaDevolucion]);
+
+  // Búsqueda de cliente por DNI con debounce 300ms
+  React.useEffect(() => {
+    if (dniInput.length < 3) { setClientesBuscados([]); return; }
+    const timer = setTimeout(async () => {
+      setBuscando(true);
+      const results = await buscarClientesPorDNI(dniInput);
+      setClientesBuscados(results);
+      setBuscando(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [dniInput]);
+
+  const onMiniSubmit = async (data: MiniClienteForm) => {
+    setMiniLoading(true);
+    setMiniError('');
+    try {
+      await crearCliente({ ...data, ciudad: data.ciudad || 'Sin especificar', fecha_nacimiento: '', direccion: '' });
+      const results = await buscarClientesPorDNI(data.dni_pasaporte);
+      const nuevo = results.find(c => c.dni_pasaporte === data.dni_pasaporte) ?? results[0];
+      if (nuevo) {
+        setValue('cliente_id', nuevo.id);
+        setClienteSeleccionado(nuevo);
+        setDniInput(nuevo.dni_pasaporte);
+        setClientesBuscados([]);
+      }
+      setMiniDialogOpen(false);
+      miniReset();
+    } catch (e: any) {
+      setMiniError(e.message ?? 'Error al crear cliente');
+    } finally {
+      setMiniLoading(false);
+    }
+  };
 
   const handleCotizar = async () => {
     if (!fechaEntrega || !fechaDevolucion || !categoriaId) return;
@@ -122,6 +189,7 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
         vehiculo_id: data.vehiculo_id || undefined,
         cobertura_id: data.cobertura_id || undefined,
         numero_vuelo: data.numero_vuelo || undefined,
+        km_contratados: data.km_contratados || 0,
         observaciones: data.observaciones || undefined,
       } as NuevaReservaData);
       setDialogOpen(false);
@@ -137,6 +205,9 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
     reset();
     setError('');
     setVehiculosDisponibles([]);
+    setDniInput('');
+    setClientesBuscados([]);
+    setClienteSeleccionado(null);
     setDialogOpen(true);
   };
 
@@ -328,6 +399,65 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
         </Card>
       </Box>
 
+      {/* Mini Dialog — Crear cliente rápido */}
+      <Dialog open={miniDialogOpen} onClose={() => setMiniDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, fontFamily: 'Outfit', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Nuevo cliente
+          <IconButton size="small" onClick={() => setMiniDialogOpen(false)}><CloseOutlined fontSize="small" /></IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {miniError && <Alert severity="error" sx={{ mb: 2 }}>{miniError}</Alert>}
+          <Grid container spacing={2} sx={{ pt: 1 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Controller name="nombre" control={miniCtrl} render={({ field }) => (
+                <TextField {...field} label="Nombre *" fullWidth size="small" error={!!miniErrors.nombre} helperText={miniErrors.nombre?.message} />
+              )} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Controller name="apellido" control={miniCtrl} render={({ field }) => (
+                <TextField {...field} label="Apellido *" fullWidth size="small" error={!!miniErrors.apellido} helperText={miniErrors.apellido?.message} />
+              )} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Controller name="dni_pasaporte" control={miniCtrl} render={({ field }) => (
+                <TextField {...field} label="DNI / Pasaporte *" fullWidth size="small" error={!!miniErrors.dni_pasaporte} helperText={miniErrors.dni_pasaporte?.message} />
+              )} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Controller name="email" control={miniCtrl} render={({ field }) => (
+                <TextField {...field} label="Email *" type="email" fullWidth size="small" error={!!miniErrors.email} helperText={miniErrors.email?.message} />
+              )} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Controller name="telefono" control={miniCtrl} render={({ field }) => (
+                <TextField {...field} label="Teléfono *" fullWidth size="small" error={!!miniErrors.telefono} helperText={miniErrors.telefono?.message} />
+              )} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Controller name="licencia_conducir" control={miniCtrl} render={({ field }) => (
+                <TextField {...field} label="Nro. Licencia *" fullWidth size="small" error={!!miniErrors.licencia_conducir} helperText={miniErrors.licencia_conducir?.message} />
+              )} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Controller name="ciudad" control={miniCtrl} render={({ field }) => (
+                <TextField {...field} label="Ciudad" fullWidth size="small" />
+              )} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Controller name="pais" control={miniCtrl} render={({ field }) => (
+                <TextField {...field} label="País" fullWidth size="small" />
+              )} />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setMiniDialogOpen(false)} disabled={miniLoading}>Cancelar</Button>
+          <Button variant="contained" onClick={miniHandleSubmit(onMiniSubmit as any)} disabled={miniLoading} sx={{ fontWeight: 600 }}>
+            {miniLoading ? 'Creando...' : 'Crear y seleccionar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Drawer de detalle */}
       {selectedReserva && (
         <ReservaDrawer
@@ -346,16 +476,81 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
         <DialogContent dividers>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           <Grid container spacing={2} sx={{ pt: 1 }}>
-            {/* Cliente */}
+            {/* Cliente — búsqueda por DNI */}
             <Grid size={{ xs: 12 }}>
-              <Controller name="cliente_id" control={control} render={({ field }) => (
-                <TextField {...field} select label="Cliente *" fullWidth size="small"
-                  error={!!errors.cliente_id} helperText={errors.cliente_id?.message}>
-                  {clientes.map(c => (
-                    <MenuItem key={c.id} value={c.id}>{c.apellido}, {c.nombre} · {c.email}</MenuItem>
-                  ))}
-                </TextField>
-              )} />
+              <Box sx={{ position: 'relative' }}>
+                {clienteSeleccionado ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, border: '1px solid #e2e8f0', borderRadius: 1, bgcolor: '#f8fafc' }}>
+                    <Typography variant="body2" sx={{ flexGrow: 1, fontWeight: 600 }}>
+                      {clienteSeleccionado.apellido}, {clienteSeleccionado.nombre} · DNI {clienteSeleccionado.dni_pasaporte}
+                    </Typography>
+                    <IconButton size="small" onClick={() => { setClienteSeleccionado(null); setDniInput(''); setValue('cliente_id', ''); }}>
+                      <CloseOutlined fontSize="small" />
+                    </IconButton>
+                  </Box>
+                ) : (
+                  <TextField
+                    label="DNI / Pasaporte del cliente *"
+                    value={dniInput}
+                    onChange={e => setDniInput(e.target.value)}
+                    onFocus={() => setDniDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setDniDropdownOpen(false), 150)}
+                    fullWidth size="small"
+                    error={!!errors.cliente_id}
+                    helperText={errors.cliente_id?.message}
+                    slotProps={{
+                      input: {
+                        endAdornment: buscando
+                          ? <InputAdornment position="end"><CircularProgress size={16} /></InputAdornment>
+                          : undefined,
+                      },
+                    }}
+                  />
+                )}
+                {dniDropdownOpen && dniInput.length >= 3 && !clienteSeleccionado && (
+                  <Paper elevation={4} sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1300, mt: 0.5, maxHeight: 260, overflow: 'auto', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                    {buscando ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5 }}>
+                        <CircularProgress size={14} />
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.82rem' }}>Buscando...</Typography>
+                      </Box>
+                    ) : clientesBuscados.length > 0 ? (
+                      <List dense disablePadding>
+                        {clientesBuscados.map(c => (
+                          <ListItemButton
+                            key={c.id}
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => { setValue('cliente_id', c.id); setClienteSeleccionado(c); setClientesBuscados([]); setDniDropdownOpen(false); }}
+                          >
+                            <ListItemText
+                              primary={`${c.apellido}, ${c.nombre}`}
+                              secondary={`DNI ${c.dni_pasaporte} · ${c.email}`}
+                              slotProps={{ primary: { sx: { fontSize: '0.85rem', fontWeight: 600 } }, secondary: { sx: { fontSize: '0.75rem' } } }}
+                            />
+                          </ListItemButton>
+                        ))}
+                      </List>
+                    ) : (
+                      <ListItemButton
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => {
+                          miniReset({ nombre: '', apellido: '', dni_pasaporte: dniInput, email: '', telefono: '', licencia_conducir: '', ciudad: '', pais: 'Argentina' });
+                          setMiniError('');
+                          setMiniDialogOpen(true);
+                          setDniDropdownOpen(false);
+                        }}
+                        sx={{ gap: 1, py: 1.5 }}
+                      >
+                        <AddOutlined sx={{ fontSize: 18, color: '#4f46e5', flexShrink: 0 }} />
+                        <ListItemText
+                          primary={`Crear nuevo cliente con DNI "${dniInput}"`}
+                          slotProps={{ primary: { sx: { fontSize: '0.85rem', fontWeight: 600, color: '#4f46e5' } } }}
+                        />
+                      </ListItemButton>
+                    )}
+                  </Paper>
+                )}
+              </Box>
             </Grid>
 
             {/* Fechas */}
@@ -405,7 +600,13 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
             <Grid size={{ xs: 12, sm: 3 }}>
               <Controller name="precio_base" control={control} render={({ field }) => (
                 <TextField {...field} label="Precio base *" type="number" fullWidth size="small"
-                  error={!!errors.precio_base} helperText={errors.precio_base?.message}
+                  error={!!errors.precio_base}
+                  helperText={
+                    errors.precio_base?.message ||
+                    (diasForm > 0 && precioBase > 0
+                      ? `${formatARS(precioBase / diasForm)}/día × ${diasForm} días`
+                      : undefined)
+                  }
                   slotProps={{ input: { startAdornment: <InputAdornment position="start">$</InputAdornment> } }} />
               )} />
             </Grid>
@@ -465,13 +666,20 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
               </Box>
             </Grid>
 
-            {/* Nro vuelo + observaciones */}
+            {/* Nro vuelo + km contratados + observaciones */}
             <Grid size={{ xs: 12, sm: 4 }}>
               <Controller name="numero_vuelo" control={control} render={({ field }) => (
                 <TextField {...field} label="Nro. vuelo (opcional)" fullWidth size="small" />
               )} />
             </Grid>
-            <Grid size={{ xs: 12, sm: 8 }}>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <Controller name="km_contratados" control={control} render={({ field }) => (
+                <TextField {...field} label="Km contratados" type="number" fullWidth size="small"
+                  helperText="Km libres incluidos en el contrato"
+                  slotProps={{ input: { endAdornment: <InputAdornment position="end">km</InputAdornment> } }} />
+              )} />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
               <Controller name="observaciones" control={control} render={({ field }) => (
                 <TextField {...field} label="Observaciones" fullWidth size="small" multiline rows={2} />
               )} />

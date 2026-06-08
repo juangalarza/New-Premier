@@ -1,8 +1,11 @@
-import { getReportesData } from './actions';
+import { getReportesData, getReportesExtra } from './actions';
 import ReportesClient from './ReportesClient';
 
 export default async function ReportesPage() {
   const año = new Date().getFullYear();
-  const data = await getReportesData(año);
-  return <ReportesClient dataInicial={data} añoInicial={año} />;
+  const [data, extra] = await Promise.all([
+    getReportesData(año),
+    getReportesExtra(año),
+  ]);
+  return <ReportesClient dataInicial={data} extraInicial={extra} añoInicial={año} />;
 }

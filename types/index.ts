@@ -34,8 +34,10 @@ export interface Vehiculo {
   estado: EstadoVehiculo;
   es_propio: boolean;
   foto_url: string | null;
+  sucursal_id: string | null;
   created_at: string;
   categoria?: Categoria;
+  sucursal?: Sucursal;
 }
 
 export interface Cliente {
@@ -49,6 +51,8 @@ export interface Cliente {
   licencia_conducir: string;
   ciudad: string;
   pais: string;
+  fecha_nacimiento: string | null;
+  direccion: string | null;
   created_at: string;
 }
 
@@ -110,6 +114,7 @@ export interface Reserva {
   precio_total: number;
   total_pagado: number;
   estado: EstadoReserva;
+  km_contratados: number | null;
   km_entrega: number | null;
   km_devolucion: number | null;
   combustible_entrega: CombustibleNivel | null;
@@ -130,6 +135,17 @@ export interface Pago {
   metodo: string;
   referencia: string | null;
   mp_payment_id: string | null;
+  created_at: string;
+}
+
+export interface Sucursal {
+  id: string;
+  tenant_id: string;
+  nombre: string;
+  direccion: string | null;
+  telefono: string | null;
+  email: string | null;
+  activa: boolean;
   created_at: string;
 }
 

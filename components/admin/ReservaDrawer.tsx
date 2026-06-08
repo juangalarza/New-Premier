@@ -9,7 +9,7 @@ import {
 import {
   CloseOutlined, PrintOutlined, DirectionsCarOutlined,
   PersonOutlined, CalendarTodayOutlined, AttachMoneyOutlined,
-  AddOutlined, WarningAmberOutlined,
+  AddOutlined, WarningAmberOutlined, ArticleOutlined,
 } from '@mui/icons-material';
 import type { ReservaConRelaciones } from '@/app/dashboard/reservas/actions';
 import {
@@ -65,6 +65,7 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
   const [accionError, setAccionError] = React.useState('');
   const [obs, setObs] = React.useState(reserva.observaciones ?? '');
   const [obsSaving, setObsSaving] = React.useState(false);
+  const [contratoImpreso, setContratoImpreso] = React.useState(false);
 
   // Dialog Entregar
   const [entregarOpen, setEntregarOpen] = React.useState(false);
@@ -111,6 +112,10 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
       setEntregarOpen(false);
     });
 
+  const kmRecorridos = kmDev && reserva.km_entrega != null ? Number(kmDev) - reserva.km_entrega : null;
+  const kmContratados = reserva.km_contratados ?? 0;
+  const kmExtra = kmRecorridos != null && kmRecorridos > kmContratados ? kmRecorridos - kmContratados : 0;
+
   const handleDevolver = () =>
     handleAccion('devolver', async () => {
       await cambiarEstado(reserva.id, 'devuelta', {
@@ -139,6 +144,31 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
       setPagoOpen(false);
       setPagoMonto(''); setPagoRef('');
     });
+
+  const handleDescargarContrato = async () => {
+    const { pdf } = await import('@react-pdf/renderer');
+    const { ContratoPDF } = await import('./ContratoPDF');
+    const blob = await pdf(React.createElement(ContratoPDF, { reserva }) as any).toBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `contrato-${reserva.id_corto}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setContratoImpreso(true);
+  };
+
+  const handleDescargarInvoice = async () => {
+    const { pdf } = await import('@react-pdf/renderer');
+    const { ReservaPDF } = await import('./ReservaPDF');
+    const blob = await pdf(React.createElement(ReservaPDF, { reserva }) as any).toBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reserva-${reserva.id_corto}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleSaveObs = async () => {
     setObsSaving(true);
@@ -182,8 +212,17 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Chip label={est?.label} size="small" sx={{ bgcolor: est?.bg, color: est?.color, fontWeight: 700 }} />
-            <Tooltip title="Imprimir">
-              <IconButton size="small" onClick={() => window.print()}><PrintOutlined fontSize="small" /></IconButton>
+            <Tooltip title="Descargar comprobante">
+              <IconButton size="small" onClick={handleDescargarInvoice}><PrintOutlined fontSize="small" /></IconButton>
+            </Tooltip>
+            <Tooltip title={contratoImpreso ? 'Contrato descargado' : 'Descargar contrato'}>
+              <IconButton
+                size="small"
+                onClick={handleDescargarContrato}
+                sx={{ color: contratoImpreso ? '#16a34a' : 'inherit' }}
+              >
+                <ArticleOutlined fontSize="small" />
+              </IconButton>
             </Tooltip>
             <Tooltip title="Cerrar">
               <IconButton size="small" onClick={onClose}><CloseOutlined fontSize="small" /></IconButton>
@@ -214,6 +253,15 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
                 </Typography>
               </Box>
             </Box>
+            <DataRow label="DNI / Pasaporte" value={reserva.cliente.dni_pasaporte} />
+            <DataRow label="Licencia" value={reserva.cliente.licencia_conducir} />
+            <DataRow label="Teléfono" value={reserva.cliente.telefono} />
+            {reserva.cliente.fecha_nacimiento && (
+              <DataRow
+                label="Fecha nacimiento"
+                value={new Date(reserva.cliente.fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              />
+            )}
 
             {/* Vehículo */}
             {reserva.vehiculo ? (
@@ -249,8 +297,15 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
             <DataRow label="Devolución" value={formatFecha(reserva.fecha_devolucion)} />
             <DataRow label="Lugar devolución" value={reserva.lugar_devolucion} />
             <DataRow label="Días" value={`${dias} día${dias !== 1 ? 's' : ''}`} />
+            {(reserva.km_contratados ?? 0) > 0 && <DataRow label="Km contratados" value={`${(reserva.km_contratados ?? 0).toLocaleString('es-AR')} km`} />}
             {reserva.km_entrega != null && <DataRow label="Km entrega" value={`${reserva.km_entrega.toLocaleString('es-AR')} km`} />}
             {reserva.km_devolucion != null && <DataRow label="Km devolución" value={`${reserva.km_devolucion.toLocaleString('es-AR')} km`} />}
+            {reserva.km_entrega != null && reserva.km_devolucion != null && (
+              <DataRow
+                label="Km recorridos"
+                value={`${(reserva.km_devolucion - reserva.km_entrega).toLocaleString('es-AR')} km`}
+              />
+            )}
 
             {/* Botones de acción */}
             <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
@@ -260,11 +315,17 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
                   {accionLoading === 'confirmar' ? <CircularProgress size={16} /> : 'Confirmar'}
                 </Button>
               )}
-              {(reserva.estado === 'confirmada') && (
-                <Button size="small" variant="contained" color="primary"
-                  onClick={() => setEntregarOpen(true)} disabled={!!accionLoading} sx={{ fontWeight: 600 }}>
-                  Entregar
-                </Button>
+              {reserva.estado === 'confirmada' && (
+                <Tooltip title={!contratoImpreso ? 'Descargá el contrato primero' : ''}>
+                  <span>
+                    <Button size="small" variant="contained" color="primary"
+                      onClick={() => setEntregarOpen(true)}
+                      disabled={!!accionLoading || !contratoImpreso}
+                      sx={{ fontWeight: 600 }}>
+                      Entregar
+                    </Button>
+                  </span>
+                </Tooltip>
               )}
               {reserva.estado === 'en_curso' && (
                 <Button size="small" variant="contained" color="success"
@@ -369,6 +430,43 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
               value={combDev} onChange={e => setCombDev(e.target.value)}>
               {['1/8', '1/4', '1/2', '3/4', 'lleno'].map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
             </TextField>
+
+            {/* Resumen de km */}
+            {kmDev && reserva.km_entrega != null && (
+              <Box sx={{ bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2, p: 1.5 }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Resumen de kilómetros
+                </Typography>
+                <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>Km al entregar</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{reserva.km_entrega.toLocaleString('es-AR')} km</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>Km al devolver</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{Number(kmDev).toLocaleString('es-AR')} km</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', pt: 0.5, mt: 0.5 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.8rem' }}>Km recorridos</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.8rem' }}>
+                      {kmRecorridos != null ? `${kmRecorridos.toLocaleString('es-AR')} km` : '—'}
+                    </Typography>
+                  </Box>
+                  {kmContratados > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>Km contratados</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{kmContratados.toLocaleString('es-AR')} km</Typography>
+                    </Box>
+                  )}
+                  {kmExtra > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', bgcolor: '#fef9c3', borderRadius: 1, px: 1, py: 0.5 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#92400e' }}>Km adicionales</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#92400e' }}>+{kmExtra.toLocaleString('es-AR')} km</Typography>
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            )}
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>

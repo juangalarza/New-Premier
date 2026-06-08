@@ -1,0 +1,3 @@
+ALTER TABLE clientes
+  ADD COLUMN IF NOT EXISTS fecha_nacimiento DATE,
+  ADD COLUMN IF NOT EXISTS direccion TEXT;

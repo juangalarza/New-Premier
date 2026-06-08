@@ -37,6 +37,35 @@ export interface ReportesData {
   ocupacionPromedio: number;
 }
 
+export interface ClienteStats {
+  id: string;
+  nombre: string;
+  apellido: string;
+  email: string;
+  count: number;
+  total: number;
+}
+
+export interface CategoriaIngreso {
+  categoria_id: string;
+  nombre: string;
+  count: number;
+  total: number;
+}
+
+export interface ComparativoAnual {
+  mes: string;
+  mesNum: number;
+  [año: string]: number | string;
+}
+
+export interface ReportesExtra {
+  topClientes: ClienteStats[];
+  porCategoria: CategoriaIngreso[];
+  comparativo: ComparativoAnual[];
+  años: string[];
+}
+
 type ReservaRow = {
   id: string;
   estado: string;
@@ -144,5 +173,100 @@ export async function getReportesData(año: number): Promise<ReportesData> {
     totalIngresado,
     ingresoPromedioPorReserva,
     ocupacionPromedio: Math.min(100, Math.round(ocupacionPromedio * 10) / 10),
+  };
+}
+
+export async function getReportesExtra(año: number): Promise<ReportesExtra> {
+  const supabase = createAdminClient();
+  const inicio = `${año}-01-01T00:00:00`;
+  const fin = `${año}-12-31T23:59:59`;
+  const años = [año - 2, año - 1, año];
+
+  const [clientesRes, categoriasRes, multiYearRes] = await Promise.all([
+    supabase
+      .from('reservas')
+      .select('cliente_id, precio_total, cliente:clientes(id, nombre, apellido, email)')
+      .eq('tenant_id', TENANT_ID)
+      .neq('estado', 'cancelada')
+      .gte('created_at', inicio)
+      .lte('created_at', fin),
+
+    supabase
+      .from('reservas')
+      .select('precio_total, vehiculo:vehiculos(categoria:categorias(id, nombre))')
+      .eq('tenant_id', TENANT_ID)
+      .neq('estado', 'cancelada')
+      .gte('created_at', inicio)
+      .lte('created_at', fin)
+      .not('vehiculo_id', 'is', null),
+
+    supabase
+      .from('reservas')
+      .select('precio_total, created_at')
+      .eq('tenant_id', TENANT_ID)
+      .neq('estado', 'cancelada')
+      .gte('created_at', `${años[0]}-01-01T00:00:00`)
+      .lte('created_at', `${año}-12-31T23:59:59`),
+  ]);
+
+  type ClienteRow = {
+    cliente_id: string;
+    precio_total: number;
+    cliente: { id: string; nombre: string; apellido: string; email: string } | null;
+  };
+  const clienteRows = (clientesRes.data ?? []) as unknown as ClienteRow[];
+  const clienteMap: Record<string, ClienteStats> = {};
+  for (const r of clienteRows) {
+    if (!r.cliente_id || !r.cliente) continue;
+    clienteMap[r.cliente_id] ??= {
+      id: r.cliente_id,
+      nombre: r.cliente.nombre,
+      apellido: r.cliente.apellido,
+      email: r.cliente.email,
+      count: 0,
+      total: 0,
+    };
+    clienteMap[r.cliente_id].count++;
+    clienteMap[r.cliente_id].total += r.precio_total;
+  }
+  const topClientes = Object.values(clienteMap).sort((a, b) => b.total - a.total).slice(0, 5);
+
+  type CategoriaRow = {
+    precio_total: number;
+    vehiculo: { categoria: { id: string; nombre: string } | null } | null;
+  };
+  const catRows = (categoriasRes.data ?? []) as unknown as CategoriaRow[];
+  const catMap: Record<string, CategoriaIngreso> = {};
+  for (const r of catRows) {
+    const cat = r.vehiculo?.categoria;
+    if (!cat) continue;
+    catMap[cat.id] ??= { categoria_id: cat.id, nombre: cat.nombre, count: 0, total: 0 };
+    catMap[cat.id].count++;
+    catMap[cat.id].total += r.precio_total;
+  }
+  const porCategoria = Object.values(catMap).sort((a, b) => b.total - a.total);
+
+  const comparativo: ComparativoAnual[] = MESES.map((mes, i) => {
+    const obj: ComparativoAnual = { mes, mesNum: i + 1 };
+    for (const a of años) obj[String(a)] = 0;
+    return obj;
+  });
+
+  type MultiRow = { precio_total: number; created_at: string };
+  const multiRows = (multiYearRes.data ?? []) as unknown as MultiRow[];
+  for (const r of multiRows) {
+    const d = new Date(r.created_at);
+    const y = String(d.getFullYear());
+    const m = d.getMonth();
+    if (comparativo[m] && y in comparativo[m]) {
+      (comparativo[m][y] as number) += r.precio_total;
+    }
+  }
+
+  return {
+    topClientes,
+    porCategoria,
+    comparativo,
+    años: años.map(String),
   };
 }

@@ -9,12 +9,12 @@ import {
 } from '@mui/material';
 import {
   AddOutlined, EditOutlined, DeleteOutlined, DirectionsCarOutlined,
-  SearchOutlined,
+  SearchOutlined, StoreOutlined,
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import type { Vehiculo } from '@/types';
+import type { Vehiculo, Sucursal } from '@/types';
 import { crearVehiculo, actualizarVehiculo, eliminarVehiculo, type VehiculoFormData } from './actions';
 
 const schema = z.object({
@@ -29,6 +29,7 @@ const schema = z.object({
   estado: z.string(),
   es_propio: z.boolean(),
   foto_url: z.string().default(''),
+  sucursal_id: z.string().default(''),
 });
 
 const ESTADO_COLORS: Record<string, string> = {
@@ -53,11 +54,13 @@ const ESTADO_LABEL: Record<string, string> = {
 interface Props {
   vehiculos: Vehiculo[];
   categorias: { id: string; nombre: string }[];
+  sucursales: Sucursal[];
 }
 
-export default function VehiculosClient({ vehiculos: initialVehiculos, categorias }: Props) {
+export default function VehiculosClient({ vehiculos: initialVehiculos, categorias, sucursales }: Props) {
   const [vehiculos, setVehiculos] = React.useState(initialVehiculos);
   const [busqueda, setBusqueda] = React.useState('');
+  const [filtroSucursal, setFiltroSucursal] = React.useState('');
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editando, setEditando] = React.useState<Vehiculo | null>(null);
   const [confirmDelete, setConfirmDelete] = React.useState<Vehiculo | null>(null);
@@ -69,7 +72,7 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
     defaultValues: {
       patente: '', marca: '', modelo: '', categoria_id: '', color: '',
       anio: new Date().getFullYear(), km_actual: 0,
-      combustible_actual: 'lleno', estado: 'disponible', es_propio: true, foto_url: '',
+      combustible_actual: 'lleno', estado: 'disponible', es_propio: true, foto_url: '', sucursal_id: '',
     },
   });
 
@@ -78,7 +81,7 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
     reset({
       patente: '', marca: '', modelo: '', categoria_id: '', color: '',
       anio: new Date().getFullYear(), km_actual: 0,
-      combustible_actual: 'lleno', estado: 'disponible', es_propio: true, foto_url: '',
+      combustible_actual: 'lleno', estado: 'disponible', es_propio: true, foto_url: '', sucursal_id: '',
     });
     setError('');
     setDialogOpen(true);
@@ -90,7 +93,7 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
       patente: v.patente, marca: v.marca, modelo: v.modelo, categoria_id: v.categoria_id,
       color: v.color ?? '', anio: v.anio, km_actual: v.km_actual,
       combustible_actual: v.combustible_actual, estado: v.estado,
-      es_propio: v.es_propio, foto_url: v.foto_url ?? '',
+      es_propio: v.es_propio, foto_url: v.foto_url ?? '', sucursal_id: v.sucursal_id ?? '',
     });
     setError('');
     setDialogOpen(true);
@@ -131,27 +134,39 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
     }
   };
 
-  const filtrados = vehiculos.filter(v =>
-    busqueda === '' ||
-    v.patente.toLowerCase().includes(busqueda.toLowerCase()) ||
-    v.marca.toLowerCase().includes(busqueda.toLowerCase()) ||
-    v.modelo.toLowerCase().includes(busqueda.toLowerCase())
-  );
+  const filtrados = vehiculos.filter(v => {
+    if (filtroSucursal && v.sucursal_id !== filtroSucursal) return false;
+    return busqueda === '' ||
+      v.patente.toLowerCase().includes(busqueda.toLowerCase()) ||
+      v.marca.toLowerCase().includes(busqueda.toLowerCase()) ||
+      v.modelo.toLowerCase().includes(busqueda.toLowerCase());
+  });
 
   return (
     <Box>
       {/* Toolbar */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <TextField
-          placeholder="Buscar patente, marca o modelo..."
-          size="small"
-          value={busqueda}
-          onChange={e => setBusqueda(e.target.value)}
-          sx={{ width: 320 }}
-          slotProps={{
-            input: { startAdornment: <InputAdornment position="start"><SearchOutlined sx={{ color: '#94a3b8' }} /></InputAdornment> },
-          }}
-        />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <TextField
+            placeholder="Buscar patente, marca o modelo..."
+            size="small"
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            sx={{ width: 280 }}
+            slotProps={{
+              input: { startAdornment: <InputAdornment position="start"><SearchOutlined sx={{ color: '#94a3b8' }} /></InputAdornment> },
+            }}
+          />
+          {sucursales.length > 0 && (
+            <TextField
+              select label="Sucursal" size="small" value={filtroSucursal}
+              onChange={e => setFiltroSucursal(e.target.value)} sx={{ width: 180 }}
+            >
+              <MenuItem value="">Todas</MenuItem>
+              {sucursales.map(s => <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>)}
+            </TextField>
+          )}
+        </Box>
         <Button
           variant="contained"
           startIcon={<AddOutlined />}
@@ -175,13 +190,14 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
               <TableCell>Combustible</TableCell>
               <TableCell>Estado</TableCell>
               <TableCell>Tipo</TableCell>
+              <TableCell>Sucursal</TableCell>
               <TableCell align="right">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filtrados.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
                   <DirectionsCarOutlined sx={{ fontSize: 48, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
                   <Typography color="text.secondary">
                     {busqueda ? 'Sin resultados para esa búsqueda' : 'No hay vehículos cargados'}
@@ -233,6 +249,16 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
                       variant="outlined"
                       sx={{ fontWeight: 600, fontSize: '0.75rem', color: v.es_propio ? '#4f46e5' : '#6b7280' }}
                     />
+                  </TableCell>
+                  <TableCell>
+                    {v.sucursal ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <StoreOutlined sx={{ fontSize: 14, color: '#4f46e5' }} />
+                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>{(v.sucursal as any).nombre}</Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" sx={{ color: '#94a3b8', fontSize: '0.8rem' }}>—</Typography>
+                    )}
                   </TableCell>
                   <TableCell align="right">
                     <Tooltip title="Editar">
@@ -334,6 +360,16 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
                   <TextField {...field} label="URL de foto (opcional)" fullWidth size="small" />
                 )} />
               </Grid>
+              {sucursales.length > 0 && (
+                <Grid size={{ xs: 12 }}>
+                  <Controller name="sucursal_id" control={control} render={({ field }) => (
+                    <TextField {...field} select label="Sucursal (opcional)" fullWidth size="small">
+                      <MenuItem value="">— sin sucursal —</MenuItem>
+                      {sucursales.map(s => <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>)}
+                    </TextField>
+                  )} />
+                </Grid>
+              )}
               <Grid size={{ xs: 12 }}>
                 <Controller name="es_propio" control={control} render={({ field }) => (
                   <FormControlLabel

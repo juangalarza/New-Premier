@@ -9,7 +9,7 @@ export async function getVehiculos(): Promise<Vehiculo[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('vehiculos')
-    .select('*, categoria:categorias(id, nombre, descripcion, tenant_id, created_at)')
+    .select('*, categoria:categorias(id, nombre, descripcion, tenant_id, created_at), sucursal:sucursales(id, nombre)')
     .eq('tenant_id', TENANT_ID)
     .order('created_at', { ascending: false });
 
@@ -39,6 +39,7 @@ export type VehiculoFormData = {
   estado: string;
   es_propio: boolean;
   foto_url: string;
+  sucursal_id: string;
 };
 
 export async function crearVehiculo(data: VehiculoFormData) {
@@ -49,6 +50,7 @@ export async function crearVehiculo(data: VehiculoFormData) {
     tenant_id: TENANT_ID,
     foto_url: data.foto_url || null,
     color: data.color || null,
+    sucursal_id: data.sucursal_id || null,
   } as never);
   if (error) throw new Error(error.message);
   revalidatePath('/dashboard/vehiculos');
@@ -64,6 +66,7 @@ export async function actualizarVehiculo(id: string, data: VehiculoFormData) {
       patente: data.patente.toUpperCase(),
       foto_url: data.foto_url || null,
       color: data.color || null,
+      sucursal_id: data.sucursal_id || null,
     } as never)
     .eq('id', id)
     .eq('tenant_id', TENANT_ID);

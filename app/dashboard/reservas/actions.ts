@@ -7,8 +7,23 @@ import { enviarEmailConfirmacion } from '@/lib/resend';
 import type { Reserva, EstadoReserva, Vehiculo, Cobertura, Adicional } from '@/types';
 
 export type ReservaConRelaciones = Omit<Reserva, 'cliente' | 'vehiculo'> & {
-  cliente: { id: string; nombre: string; apellido: string; email: string };
-  vehiculo: { id: string; patente: string; modelo: string; foto_url: string | null } | null;
+  cliente: {
+    id: string;
+    nombre: string;
+    apellido: string;
+    email: string;
+    telefono: string;
+    dni_pasaporte: string;
+    licencia_conducir: string;
+    fecha_nacimiento: string | null;
+  };
+  vehiculo: {
+    id: string;
+    patente: string;
+    modelo: string;
+    foto_url: string | null;
+    categoria: { id: string; nombre: string } | null;
+  } | null;
 };
 
 export type ReservaFiltros = {
@@ -25,8 +40,8 @@ export async function getReservas(filtros: ReservaFiltros = {}): Promise<Reserva
     .from('reservas')
     .select(`
       *,
-      cliente:clientes(id, nombre, apellido, email),
-      vehiculo:vehiculos(id, patente, modelo, foto_url)
+      cliente:clientes(id, nombre, apellido, email, telefono, dni_pasaporte, licencia_conducir, fecha_nacimiento),
+      vehiculo:vehiculos(id, patente, modelo, foto_url, categoria:categorias(id, nombre))
     `)
     .eq('tenant_id', TENANT_ID)
     .order('created_at', { ascending: false });
@@ -46,8 +61,8 @@ export async function getReserva(id: string): Promise<ReservaConRelaciones> {
     .from('reservas')
     .select(`
       *,
-      cliente:clientes(id, nombre, apellido, email),
-      vehiculo:vehiculos(id, patente, modelo, foto_url)
+      cliente:clientes(id, nombre, apellido, email, telefono, dni_pasaporte, licencia_conducir, fecha_nacimiento),
+      vehiculo:vehiculos(id, patente, modelo, foto_url, categoria:categorias(id, nombre))
     `)
     .eq('id', id)
     .eq('tenant_id', TENANT_ID)
@@ -98,7 +113,7 @@ export async function getVehiculosDisponibles(
     .from('reservas')
     .select('vehiculo_id')
     .eq('tenant_id', TENANT_ID)
-    .in('estado', ['confirmada', 'en_curso'])
+    .in('estado', ['pendiente', 'confirmada', 'en_curso'])
     .lt('fecha_entrega', fechaHasta)
     .gt('fecha_devolucion', fechaDesde)
     .not('vehiculo_id', 'is', null);
@@ -126,6 +141,20 @@ export async function getVehiculosDisponibles(
     .order('patente');
 
   return ((data ?? []) as Vehiculo[]).filter(v => !idsOcupados.has(v.id));
+}
+
+export async function buscarClientesPorDNI(
+  dni: string
+): Promise<{ id: string; nombre: string; apellido: string; dni_pasaporte: string; email: string }[]> {
+  if (dni.length < 5) return [];
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from('clientes')
+    .select('id, nombre, apellido, dni_pasaporte, email')
+    .eq('tenant_id', TENANT_ID)
+    .ilike('dni_pasaporte', `%${dni}%`)
+    .limit(6);
+  return (data ?? []) as any;
 }
 
 export async function getCategoriasConTarifas() {
@@ -162,6 +191,7 @@ export type NuevaReservaData = {
   adicional_ids?: string[];
   precio_base: number;
   descuento_aplicado?: number;
+  km_contratados?: number;
   observaciones?: string;
 };
 
@@ -174,6 +204,13 @@ export async function crearReserva(data: NuevaReservaData): Promise<string> {
   const dias = Math.ceil(
     (new Date(data.fecha_devolucion).getTime() - new Date(data.fecha_entrega).getTime()) / 86400000
   );
+
+  if (data.vehiculo_id) {
+    const disponibles = await getVehiculosDisponibles(data.fecha_entrega, data.fecha_devolucion);
+    if (!disponibles.some(v => v.id === data.vehiculo_id)) {
+      throw new Error('El vehículo no está disponible para esas fechas');
+    }
+  }
 
   type PrecioRow = { precio_por_dia: number };
   if (data.cobertura_id) {
@@ -215,6 +252,7 @@ export async function crearReserva(data: NuevaReservaData): Promise<string> {
       precio_adicionales,
       precio_total,
       total_pagado: 0,
+      km_contratados: data.km_contratados ?? 0,
       estado: 'confirmada',
       observaciones: data.observaciones || null,
     } as never)
