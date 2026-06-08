@@ -24,6 +24,16 @@ export default function LandingPage() {
   const [fechaDesde, setFechaDesde] = React.useState(getToday());
   const [fechaHasta, setFechaHasta] = React.useState(getTomorrow());
 
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash.substring(1);
+    if (!hash) return;
+    const params = new URLSearchParams(hash);
+    if (params.get('access_token')) {
+      router.replace('/auth/confirm' + window.location.hash);
+    }
+  }, [router]);
+
   function handleBuscar() {
     if (!fechaDesde || !fechaHasta) return;
     router.push(`/reservar?desde=${fechaDesde}&hasta=${fechaHasta}`);
