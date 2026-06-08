@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { Box, Grid } from '@mui/material';
 import {
   AttachMoneyOutlined,

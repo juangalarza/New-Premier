@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getTenant, getCoberturas, getAdicionales, getDescuentos } from './actions';
 import ConfiguracionClient from './ConfiguracionClient';
 

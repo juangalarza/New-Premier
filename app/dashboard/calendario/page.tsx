@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getGanttData } from './actions';
 import GanttCalendar from '@/components/admin/GanttCalendar';
 

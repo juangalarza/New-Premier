@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getReportesData, getReportesExtra } from './actions';
 import ReportesClient from './ReportesClient';
 

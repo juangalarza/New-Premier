@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getReservas, getClientes, getCoberturas, getAdicionales, getCategoriasConTarifas } from './actions';
 import ReservasClient from './ReservasClient';
 

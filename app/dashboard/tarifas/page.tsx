@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getTarifaMatrix } from './actions';
 import TarifasClient from './TarifasClient';
 

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getAgendaDia } from './actions';
 import AgendaClient from './AgendaClient';
 

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getVehiculos, getCategorias } from './actions';
 import { getSucursales } from '@/app/dashboard/sucursales/actions';
 import VehiculosClient from './VehiculosClient';
