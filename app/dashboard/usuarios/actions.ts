@@ -49,8 +49,10 @@ export async function invitarUsuario(data: {
 }) {
   const supabase = createAdminClient();
 
+  const siteUrl = process.env.NEXT_PUBLIC_URL ?? 'http://localhost:3000';
   const { data: authData, error } = await supabase.auth.admin.inviteUserByEmail(data.email, {
     data: { nombre: data.nombre, apellido: data.apellido },
+    redirectTo: `${siteUrl}/api/auth/callback`,
   });
   if (error) throw new Error(error.message);
 
