@@ -1,4 +1,4 @@
-﻿'use server';
+'use server';
 
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -41,45 +41,67 @@ export async function getUsuarios(): Promise<UsuarioAdmin[]> {
     }));
 }
 
-export async function invitarUsuario(data: {
+export interface UsuarioFormData {
   email: string;
   nombre: string;
   apellido: string;
   rol: RolUsuario;
-}) {
+  password: string;
+}
+
+export async function crearUsuario(data: UsuarioFormData): Promise<void> {
   const supabase = createAdminClient();
 
-  const siteUrl = process.env.NEXT_PUBLIC_URL ?? 'http://localhost:3000';
-  const { data: authData, error } = await supabase.auth.admin.inviteUserByEmail(data.email, {
-    data: { nombre: data.nombre, apellido: data.apellido },
-    redirectTo: `${siteUrl}/auth/confirm`,
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email: data.email,
+    password: data.password,
+    email_confirm: true,
+    user_metadata: { nombre: data.nombre, apellido: data.apellido },
   });
-  if (error) throw new Error(error.message);
+  if (authError) throw new Error(authError.message);
 
-  const { error: insertError } = await supabase.from('usuarios').insert({
+  const { error: dbError } = await supabase.from('usuarios').upsert({
     id: authData.user.id,
     tenant_id: TENANT_ID,
     nombre: data.nombre,
     apellido: data.apellido,
     rol: data.rol,
-  } as never);
-  if (insertError) throw new Error(insertError.message);
+  } as never, { onConflict: 'id' });
+  if (dbError) throw new Error(dbError.message);
 
   revalidatePath('/dashboard/usuarios');
 }
 
-export async function actualizarRol(id: string, rol: RolUsuario) {
+export interface UsuarioEditData {
+  nombre: string;
+  apellido: string;
+  rol: RolUsuario;
+  email?: string;
+  password?: string;
+}
+
+export async function actualizarUsuario(id: string, data: UsuarioEditData): Promise<void> {
   const supabase = createAdminClient();
-  const { error } = await supabase
+
+  const authUpdate: Record<string, unknown> = {};
+  if (data.email) authUpdate.email = data.email;
+  if (data.password) authUpdate.password = data.password;
+  if (Object.keys(authUpdate).length > 0) {
+    const { error } = await supabase.auth.admin.updateUserById(id, authUpdate);
+    if (error) throw new Error(error.message);
+  }
+
+  const { error: dbError } = await supabase
     .from('usuarios')
-    .update({ rol } as never)
+    .update({ nombre: data.nombre, apellido: data.apellido, rol: data.rol } as never)
     .eq('id', id)
     .eq('tenant_id', TENANT_ID);
-  if (error) throw new Error(error.message);
+  if (dbError) throw new Error(dbError.message);
+
   revalidatePath('/dashboard/usuarios');
 }
 
-export async function eliminarUsuario(id: string) {
+export async function eliminarUsuario(id: string): Promise<void> {
   const supabase = createAdminClient();
   await supabase.from('usuarios').delete().eq('id', id).eq('tenant_id', TENANT_ID);
   await supabase.auth.admin.deleteUser(id);

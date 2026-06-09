@@ -6,12 +6,13 @@ import {
   TableHead, TableRow, Avatar, IconButton, Button, Dialog,
   DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem,
   FormControl, InputLabel, Tooltip, Stack, Alert, CircularProgress,
+  InputAdornment,
 } from '@mui/material';
 import {
-  PersonAddOutlined, DeleteOutlined, AdminPanelSettingsOutlined, PersonOutlined,
-  EmailOutlined,
+  PersonAddOutlined, DeleteOutlined, AdminPanelSettingsOutlined,
+  PersonOutlined, EditOutlined, VisibilityOutlined, VisibilityOffOutlined,
 } from '@mui/icons-material';
-import { invitarUsuario, actualizarRol, eliminarUsuario } from './actions';
+import { crearUsuario, actualizarUsuario, eliminarUsuario, getUsuarios } from './actions';
 import type { UsuarioAdmin } from './actions';
 import type { RolUsuario } from '@/types';
 
@@ -32,37 +33,62 @@ function formatUltimoAcceso(iso: string | null) {
   } catch { return '—'; }
 }
 
+const EMPTY_FORM = { email: '', nombre: '', apellido: '', rol: 'operador' as RolUsuario, password: '' };
+
 interface Props {
   usuariosIniciales: UsuarioAdmin[];
 }
 
 export default function UsuariosClient({ usuariosIniciales }: Props) {
   const [usuarios, setUsuarios] = React.useState(usuariosIniciales);
-  const [invDialog, setInvDialog] = React.useState(false);
-  const [form, setForm] = React.useState({ email: '', nombre: '', apellido: '', rol: 'operador' as RolUsuario });
+  const [dialog, setDialog] = React.useState<{ open: boolean; editId: string | null }>({ open: false, editId: null });
+  const [form, setForm] = React.useState(EMPTY_FORM);
+  const [showPass, setShowPass] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
-  async function handleInvitar() {
+  const isEdit = dialog.editId !== null;
+
+  function openCrear() {
+    setForm(EMPTY_FORM);
+    setError('');
+    setDialog({ open: true, editId: null });
+  }
+
+  function openEditar(u: UsuarioAdmin) {
+    setForm({ email: u.email, nombre: u.nombre, apellido: u.apellido, rol: u.rol, password: '' });
+    setError('');
+    setDialog({ open: true, editId: u.id });
+  }
+
+  function cerrar() {
+    setDialog({ open: false, editId: null });
+  }
+
+  async function handleGuardar() {
     if (!form.email || !form.nombre || !form.apellido) return;
+    if (!isEdit && !form.password) return;
     setLoading(true);
     setError('');
     try {
-      await invitarUsuario(form);
-      const { getUsuarios } = await import('./actions');
+      if (isEdit) {
+        await actualizarUsuario(dialog.editId!, {
+          nombre: form.nombre,
+          apellido: form.apellido,
+          rol: form.rol,
+          email: form.email || undefined,
+          password: form.password || undefined,
+        });
+      } else {
+        await crearUsuario(form);
+      }
       setUsuarios(await getUsuarios());
-      setInvDialog(false);
-      setForm({ email: '', nombre: '', apellido: '', rol: 'operador' });
+      cerrar();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Error al invitar usuario');
+      setError(e instanceof Error ? e.message : 'Ocurrió un error');
     } finally {
       setLoading(false);
     }
-  }
-
-  async function handleCambiarRol(id: string, rol: RolUsuario) {
-    await actualizarRol(id, rol);
-    setUsuarios(prev => prev.map(u => u.id === id ? { ...u, rol } : u));
   }
 
   async function handleEliminar(id: string, email: string) {
@@ -70,6 +96,8 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
     await eliminarUsuario(id);
     setUsuarios(prev => prev.filter(u => u.id !== id));
   }
+
+  const canGuardar = !!form.email && !!form.nombre && !!form.apellido && (isEdit || !!form.password);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -83,10 +111,10 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
         <Button
           variant="contained"
           startIcon={<PersonAddOutlined />}
-          onClick={() => setInvDialog(true)}
+          onClick={openCrear}
           sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}
         >
-          Invitar Usuario
+          Agregar Usuario
         </Button>
       </Box>
 
@@ -94,7 +122,7 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
         <Paper variant="outlined" sx={{ p: 6, textAlign: 'center', borderRadius: 2, color: 'text.secondary' }}>
           <PersonOutlined sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
           <Typography sx={{ fontWeight: 600 }}>Sin usuarios registrados</Typography>
-          <Typography variant="body2" sx={{ mt: 0.5 }}>Invita a un operador o administrador para comenzar.</Typography>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>Agregá un operador o administrador para comenzar.</Typography>
         </Paper>
       ) : (
         <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
@@ -107,7 +135,7 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
                   <TableCell sx={{ fontWeight: 700 }}>Rol</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Registrado</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Último acceso</TableCell>
-                  <TableCell sx={{ fontWeight: 700, width: 60 }}>Acc.</TableCell>
+                  <TableCell sx={{ fontWeight: 700, width: 80 }} align="center">Acc.</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -122,40 +150,15 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <EmailOutlined sx={{ fontSize: 14, color: 'text.disabled' }} />
-                        <Typography variant="body2">{u.email}</Typography>
-                      </Box>
+                      <Typography variant="body2">{u.email}</Typography>
                     </TableCell>
                     <TableCell>
-                      <FormControl size="small" sx={{ minWidth: 130 }}>
-                        <Select
-                          value={u.rol}
-                          onChange={e => handleCambiarRol(u.id, e.target.value as RolUsuario)}
-                          renderValue={v => (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              {v === 'admin'
-                                ? <AdminPanelSettingsOutlined sx={{ fontSize: 16, color: '#4f46e5' }} />
-                                : <PersonOutlined sx={{ fontSize: 16 }} />}
-                              <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>{v}</Typography>
-                            </Box>
-                          )}
-                          sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: u.rol === 'admin' ? '#4f46e5' : '#e2e8f0' } }}
-                        >
-                          <MenuItem value="admin">
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <AdminPanelSettingsOutlined sx={{ fontSize: 18, color: '#4f46e5' }} />
-                              <Typography>Admin</Typography>
-                            </Box>
-                          </MenuItem>
-                          <MenuItem value="operador">
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <PersonOutlined sx={{ fontSize: 18 }} />
-                              <Typography>Operador</Typography>
-                            </Box>
-                          </MenuItem>
-                        </Select>
-                      </FormControl>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {u.rol === 'admin'
+                          ? <AdminPanelSettingsOutlined sx={{ fontSize: 16, color: '#4f46e5' }} />
+                          : <PersonOutlined sx={{ fontSize: 16, color: '#f59e0b' }} />}
+                        <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>{u.rol}</Typography>
+                      </Box>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">{formatFecha(u.created_at)}</Typography>
@@ -163,12 +166,19 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">{formatUltimoAcceso(u.last_sign_in)}</Typography>
                     </TableCell>
-                    <TableCell>
-                      <Tooltip title="Eliminar usuario">
-                        <IconButton size="small" color="error" onClick={() => handleEliminar(u.id, u.email)}>
-                          <DeleteOutlined fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={0.5} justifyContent="center">
+                        <Tooltip title="Editar usuario">
+                          <IconButton size="small" onClick={() => openEditar(u)}>
+                            <EditOutlined fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar usuario">
+                          <IconButton size="small" color="error" onClick={() => handleEliminar(u.id, u.email)}>
+                            <DeleteOutlined fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -178,35 +188,85 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
         </Paper>
       )}
 
-      {/* Dialog Invitar */}
-      <Dialog open={invDialog} onClose={() => setInvDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>Invitar Usuario</DialogTitle>
+      <Dialog open={dialog.open} onClose={cerrar} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>
+          {isEdit ? 'Editar Usuario' : 'Agregar Nuevo Usuario'}
+        </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
           {error && <Alert severity="error">{error}</Alert>}
-          <Alert severity="info">Se enviará un email de invitación al usuario para que establezca su contraseña.</Alert>
+
           <Stack direction="row" spacing={2}>
-            <TextField label="Nombre" size="small" fullWidth required
-              value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
-            <TextField label="Apellido" size="small" fullWidth required
-              value={form.apellido} onChange={e => setForm(f => ({ ...f, apellido: e.target.value }))} />
+            <TextField
+              label="Nombre" size="small" fullWidth required
+              value={form.nombre}
+              onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+            />
+            <TextField
+              label="Apellido" size="small" fullWidth required
+              value={form.apellido}
+              onChange={e => setForm(f => ({ ...f, apellido: e.target.value }))}
+            />
           </Stack>
-          <TextField label="Email" type="email" size="small" fullWidth required
-            value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+
+          <TextField
+            label="Email" type="email" size="small" fullWidth required
+            value={form.email}
+            onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+          />
+
+          <TextField
+            label={isEdit ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña'}
+            type={showPass ? 'text' : 'password'}
+            size="small" fullWidth
+            required={!isEdit}
+            value={form.password}
+            onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setShowPass(v => !v)} edge="end">
+                      {showPass ? <VisibilityOffOutlined fontSize="small" /> : <VisibilityOutlined fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+
           <FormControl fullWidth size="small">
             <InputLabel>Rol</InputLabel>
-            <Select value={form.rol} label="Rol"
-              onChange={e => setForm(f => ({ ...f, rol: e.target.value as RolUsuario }))}>
-              <MenuItem value="admin">Admin — Acceso completo</MenuItem>
-              <MenuItem value="operador">Operador — Sin configuración ni usuarios</MenuItem>
+            <Select
+              value={form.rol} label="Rol"
+              onChange={e => setForm(f => ({ ...f, rol: e.target.value as RolUsuario }))}
+            >
+              <MenuItem value="admin">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AdminPanelSettingsOutlined sx={{ fontSize: 18, color: '#4f46e5' }} />
+                  Admin — Acceso completo
+                </Box>
+              </MenuItem>
+              <MenuItem value="operador">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <PersonOutlined sx={{ fontSize: 18, color: '#f59e0b' }} />
+                  Operador — Sin configuración ni usuarios
+                </Box>
+              </MenuItem>
             </Select>
           </FormControl>
         </DialogContent>
+
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setInvDialog(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleInvitar}
-            disabled={loading || !form.email || !form.nombre || !form.apellido}
-            sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}>
-            {loading ? <CircularProgress size={18} color="inherit" /> : 'Enviar invitación'}
+          <Button onClick={cerrar} disabled={loading}>Cancelar</Button>
+          <Button
+            variant="contained"
+            onClick={handleGuardar}
+            disabled={loading || !canGuardar}
+            sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}
+          >
+            {loading
+              ? <CircularProgress size={18} color="inherit" />
+              : isEdit ? 'Guardar cambios' : 'Crear usuario'}
           </Button>
         </DialogActions>
       </Dialog>
