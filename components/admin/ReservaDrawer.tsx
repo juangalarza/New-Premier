@@ -4,18 +4,21 @@ import * as React from 'react';
 import {
   Box, Drawer, Typography, IconButton, Divider, Chip, Button,
   Avatar, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, Alert, CircularProgress,
+  TextField, MenuItem, Alert, CircularProgress, Snackbar, Select,
+  FormControl, InputLabel,
 } from '@mui/material';
 import {
   CloseOutlined, PrintOutlined, DirectionsCarOutlined,
   PersonOutlined, CalendarTodayOutlined, AttachMoneyOutlined,
   AddOutlined, WarningAmberOutlined, ArticleOutlined,
+  EditOutlined, SaveOutlined, CancelOutlined,
 } from '@mui/icons-material';
 import type { ReservaConRelaciones } from '@/app/dashboard/reservas/actions';
 import {
   cambiarEstado, cargarPago, autoAsignarVehiculo, actualizarObservaciones,
-  getReserva,
+  actualizarReserva, getVehiculosDisponibles, getReserva,
 } from '@/app/dashboard/reservas/actions';
+import type { Vehiculo } from '@/types';
 
 interface Props {
   reserva: ReservaConRelaciones;
@@ -66,6 +69,20 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
   const [obs, setObs] = React.useState(reserva.observaciones ?? '');
   const [obsSaving, setObsSaving] = React.useState(false);
   const [contratoImpreso, setContratoImpreso] = React.useState(false);
+
+  // Edit mode
+  const [editMode, setEditMode] = React.useState(false);
+  const [editData, setEditData] = React.useState({
+    fecha_entrega: '',
+    fecha_devolucion: '',
+    lugar_entrega: '',
+    lugar_devolucion: '',
+    vehiculo_id: null as string | null,
+    precio_total: 0,
+  });
+  const [vehiculosDisponibles, setVehiculosDisponibles] = React.useState<Vehiculo[]>([]);
+  const [editLoading, setEditLoading] = React.useState(false);
+  const [snackbar, setSnackbar] = React.useState<{ open: boolean; msg: string; severity: 'success' | 'error' }>({ open: false, msg: '', severity: 'success' });
 
   // Dialog Entregar
   const [entregarOpen, setEntregarOpen] = React.useState(false);
@@ -176,6 +193,47 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
     setObsSaving(false);
   };
 
+  const handleStartEdit = async () => {
+    setEditData({
+      fecha_entrega: reserva.fecha_entrega.slice(0, 16),
+      fecha_devolucion: reserva.fecha_devolucion.slice(0, 16),
+      lugar_entrega: reserva.lugar_entrega,
+      lugar_devolucion: reserva.lugar_devolucion,
+      vehiculo_id: reserva.vehiculo_id,
+      precio_total: reserva.precio_total,
+    });
+    const veh = await getVehiculosDisponibles(reserva.fecha_entrega, reserva.fecha_devolucion);
+    // Siempre incluir el vehículo actual en la lista aunque esté ocupado
+    const actual = reserva.vehiculo;
+    const yaEsta = !actual || veh.some(v => v.id === actual.id);
+    setVehiculosDisponibles(yaEsta ? veh : [{ id: actual.id, patente: actual.patente, modelo: actual.modelo } as Vehiculo, ...veh]);
+    setEditMode(true);
+  };
+
+  const handleCancelEdit = () => setEditMode(false);
+
+  const handleGuardarEdicion = async () => {
+    if (new Date(editData.fecha_devolucion) <= new Date(editData.fecha_entrega)) {
+      setSnackbar({ open: true, msg: 'La fecha de devolución debe ser posterior a la de entrega', severity: 'error' });
+      return;
+    }
+    setEditLoading(true);
+    try {
+      await actualizarReserva(reserva.id, {
+        ...editData,
+        fecha_entrega: new Date(editData.fecha_entrega).toISOString(),
+        fecha_devolucion: new Date(editData.fecha_devolucion).toISOString(),
+      });
+      await refreshReserva();
+      setEditMode(false);
+      setSnackbar({ open: true, msg: 'Reserva actualizada correctamente', severity: 'success' });
+    } catch (e: unknown) {
+      setSnackbar({ open: true, msg: e instanceof Error ? e.message : 'Error al guardar', severity: 'error' });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   const est = ESTADO_STYLE[reserva.estado];
   const saldo = reserva.precio_total - reserva.total_pagado;
   const dias = Math.ceil((new Date(reserva.fecha_devolucion).getTime() - new Date(reserva.fecha_entrega).getTime()) / 86400000);
@@ -212,18 +270,38 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Chip label={est?.label} size="small" sx={{ bgcolor: est?.bg, color: est?.color, fontWeight: 700 }} />
-            <Tooltip title="Descargar comprobante">
-              <IconButton size="small" onClick={handleDescargarInvoice}><PrintOutlined fontSize="small" /></IconButton>
-            </Tooltip>
-            <Tooltip title={contratoImpreso ? 'Contrato descargado' : 'Descargar contrato'}>
-              <IconButton
-                size="small"
-                onClick={handleDescargarContrato}
-                sx={{ color: contratoImpreso ? '#16a34a' : 'inherit' }}
-              >
-                <ArticleOutlined fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {!editMode && (
+              <>
+                <Tooltip title="Descargar comprobante">
+                  <IconButton size="small" onClick={handleDescargarInvoice}><PrintOutlined fontSize="small" /></IconButton>
+                </Tooltip>
+                <Tooltip title={contratoImpreso ? 'Contrato descargado' : 'Descargar contrato'}>
+                  <IconButton size="small" onClick={handleDescargarContrato} sx={{ color: contratoImpreso ? '#16a34a' : 'inherit' }}>
+                    <ArticleOutlined fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                {!['cancelada', 'devuelta'].includes(reserva.estado) && (
+                  <Tooltip title="Editar reserva">
+                    <IconButton size="small" onClick={handleStartEdit} sx={{ color: '#4f46e5' }}>
+                      <EditOutlined fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </>
+            )}
+            {editMode && (
+              <>
+                <Button size="small" variant="outlined" color="inherit" startIcon={<CancelOutlined />}
+                  onClick={handleCancelEdit} disabled={editLoading} sx={{ fontWeight: 600, fontSize: '0.75rem' }}>
+                  Cancelar
+                </Button>
+                <Button size="small" variant="contained" startIcon={editLoading ? <CircularProgress size={14} color="inherit" /> : <SaveOutlined />}
+                  onClick={handleGuardarEdicion} disabled={editLoading}
+                  sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' }, fontWeight: 600, fontSize: '0.75rem' }}>
+                  Guardar
+                </Button>
+              </>
+            )}
             <Tooltip title="Cerrar">
               <IconButton size="small" onClick={onClose}><CloseOutlined fontSize="small" /></IconButton>
             </Tooltip>
@@ -291,20 +369,56 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
           {/* Entrega / Devolución */}
           <Box>
             <SectionTitle icon={<CalendarTodayOutlined fontSize="small" />} title="Entrega y Devolución" />
-            <DataRow label="Entrega" value={formatFecha(reserva.fecha_entrega)} />
-            <DataRow label="Lugar entrega" value={reserva.lugar_entrega} />
-            {reserva.numero_vuelo && <DataRow label="Nro. vuelo" value={reserva.numero_vuelo} />}
-            <DataRow label="Devolución" value={formatFecha(reserva.fecha_devolucion)} />
-            <DataRow label="Lugar devolución" value={reserva.lugar_devolucion} />
-            <DataRow label="Días" value={`${dias} día${dias !== 1 ? 's' : ''}`} />
-            {(reserva.km_contratados ?? 0) > 0 && <DataRow label="Km contratados" value={`${(reserva.km_contratados ?? 0).toLocaleString('es-AR')} km`} />}
-            {reserva.km_entrega != null && <DataRow label="Km entrega" value={`${reserva.km_entrega.toLocaleString('es-AR')} km`} />}
-            {reserva.km_devolucion != null && <DataRow label="Km devolución" value={`${reserva.km_devolucion.toLocaleString('es-AR')} km`} />}
-            {reserva.km_entrega != null && reserva.km_devolucion != null && (
-              <DataRow
-                label="Km recorridos"
-                value={`${(reserva.km_devolucion - reserva.km_entrega).toLocaleString('es-AR')} km`}
-              />
+            {!editMode ? (
+              <>
+                <DataRow label="Entrega" value={formatFecha(reserva.fecha_entrega)} />
+                <DataRow label="Lugar entrega" value={reserva.lugar_entrega} />
+                {reserva.numero_vuelo && <DataRow label="Nro. vuelo" value={reserva.numero_vuelo} />}
+                <DataRow label="Devolución" value={formatFecha(reserva.fecha_devolucion)} />
+                <DataRow label="Lugar devolución" value={reserva.lugar_devolucion} />
+                <DataRow label="Días" value={`${dias} día${dias !== 1 ? 's' : ''}`} />
+                {(reserva.km_contratados ?? 0) > 0 && <DataRow label="Km contratados" value={`${(reserva.km_contratados ?? 0).toLocaleString('es-AR')} km`} />}
+                {reserva.km_entrega != null && <DataRow label="Km entrega" value={`${reserva.km_entrega.toLocaleString('es-AR')} km`} />}
+                {reserva.km_devolucion != null && <DataRow label="Km devolución" value={`${reserva.km_devolucion.toLocaleString('es-AR')} km`} />}
+                {reserva.km_entrega != null && reserva.km_devolucion != null && (
+                  <DataRow label="Km recorridos" value={`${(reserva.km_devolucion - reserva.km_entrega).toLocaleString('es-AR')} km`} />
+                )}
+              </>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <TextField label="Fecha entrega" type="datetime-local" size="small" fullWidth
+                  value={editData.fecha_entrega}
+                  onChange={e => setEditData(d => ({ ...d, fecha_entrega: e.target.value }))}
+                  slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField label="Lugar entrega" size="small" fullWidth
+                  value={editData.lugar_entrega}
+                  onChange={e => setEditData(d => ({ ...d, lugar_entrega: e.target.value }))} />
+                <TextField label="Fecha devolución" type="datetime-local" size="small" fullWidth
+                  value={editData.fecha_devolucion}
+                  onChange={e => setEditData(d => ({ ...d, fecha_devolucion: e.target.value }))}
+                  slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField label="Lugar devolución" size="small" fullWidth
+                  value={editData.lugar_devolucion}
+                  onChange={e => setEditData(d => ({ ...d, lugar_devolucion: e.target.value }))} />
+                <FormControl fullWidth size="small">
+                  <InputLabel>Vehículo</InputLabel>
+                  <Select
+                    value={editData.vehiculo_id ?? ''}
+                    label="Vehículo"
+                    onChange={e => setEditData(d => ({ ...d, vehiculo_id: e.target.value || null }))}
+                  >
+                    <MenuItem value=""><em>Sin asignar</em></MenuItem>
+                    {vehiculosDisponibles.map(v => (
+                      <MenuItem key={v.id} value={v.id}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700, color: '#4f46e5' }}>{v.patente}</Typography>
+                          <Typography variant="body2" color="text.secondary">{v.modelo}</Typography>
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
             )}
 
             {/* Botones de acción */}
@@ -364,7 +478,19 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
               <DataRow label="Adicionales" value={formatARS(reserva.precio_adicionales)} />
             )}
             <Divider sx={{ my: 1 }} />
-            <DataRow label="Total acordado" value={<strong>{formatARS(reserva.precio_total)}</strong>} />
+            {!editMode ? (
+              <DataRow label="Total acordado" value={<strong>{formatARS(reserva.precio_total)}</strong>} />
+            ) : (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.82rem' }}>Total acordado</Typography>
+                <TextField
+                  type="number" size="small" sx={{ width: 140 }}
+                  value={editData.precio_total}
+                  onChange={e => setEditData(d => ({ ...d, precio_total: Number(e.target.value) }))}
+                  slotProps={{ input: { startAdornment: <Box component="span" sx={{ mr: 0.5, color: 'text.secondary', fontSize: '0.82rem' }}>$</Box> } }}
+                />
+              </Box>
+            )}
             <DataRow
               label="Total pagado"
               value={<span style={{ color: saldo === 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{formatARS(reserva.total_pagado)}</span>}
@@ -476,6 +602,18 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar feedback */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar(s => ({ ...s, open: false }))} sx={{ width: '100%' }}>
+          {snackbar.msg}
+        </Alert>
+      </Snackbar>
 
       {/* Dialog Pago */}
       <Dialog open={pagoOpen} onClose={() => setPagoOpen(false)} maxWidth="xs" fullWidth>

@@ -34,6 +34,7 @@ export async function getGanttData(year: number, month: number, numMeses: number
       `)
       .eq('tenant_id', TENANT_ID)
       .not('estado', 'in', '("cancelada")')
+      .not('vehiculo_id', 'is', null)
       .lt('fecha_entrega', fin)
       .gt('fecha_devolucion', inicio),
   ]);

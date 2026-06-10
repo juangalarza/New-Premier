@@ -447,3 +447,53 @@ export async function actualizarObservaciones(id: string, observaciones: string)
     .eq('tenant_id', TENANT_ID);
   revalidatePath('/dashboard/reservas');
 }
+
+export type ActualizarReservaData = {
+  fecha_entrega: string;
+  fecha_devolucion: string;
+  lugar_entrega: string;
+  lugar_devolucion: string;
+  vehiculo_id: string | null;
+  precio_total: number;
+};
+
+export async function actualizarReserva(id: string, data: ActualizarReservaData): Promise<void> {
+  const supabase = createAdminClient();
+
+  if (new Date(data.fecha_devolucion) <= new Date(data.fecha_entrega)) {
+    throw new Error('La fecha de devolución debe ser posterior a la de entrega');
+  }
+
+  if (data.vehiculo_id) {
+    const { data: conflictos } = await supabase
+      .from('reservas')
+      .select('id')
+      .eq('tenant_id', TENANT_ID)
+      .eq('vehiculo_id', data.vehiculo_id)
+      .in('estado', ['pendiente', 'confirmada', 'en_curso'])
+      .lt('fecha_entrega', data.fecha_devolucion)
+      .gt('fecha_devolucion', data.fecha_entrega)
+      .neq('id', id);
+
+    if ((conflictos?.length ?? 0) > 0) {
+      throw new Error('El vehículo no está disponible para esas fechas');
+    }
+  }
+
+  const { error } = await supabase
+    .from('reservas')
+    .update({
+      fecha_entrega: data.fecha_entrega,
+      fecha_devolucion: data.fecha_devolucion,
+      lugar_entrega: data.lugar_entrega,
+      lugar_devolucion: data.lugar_devolucion,
+      vehiculo_id: data.vehiculo_id,
+      precio_total: data.precio_total,
+    } as never)
+    .eq('id', id)
+    .eq('tenant_id', TENANT_ID);
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/dashboard/reservas');
+  revalidatePath('/dashboard/calendario');
+}
