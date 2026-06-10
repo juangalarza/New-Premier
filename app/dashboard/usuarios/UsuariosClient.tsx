@@ -167,7 +167,7 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
                       <Typography variant="body2" color="text.secondary">{formatUltimoAcceso(u.last_sign_in)}</Typography>
                     </TableCell>
                     <TableCell align="center">
-                      <Stack direction="row" spacing={0.5} justifyContent="center">
+                      <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center' }}>
                         <Tooltip title="Editar usuario">
                           <IconButton size="small" onClick={() => openEditar(u)}>
                             <EditOutlined fontSize="small" />
