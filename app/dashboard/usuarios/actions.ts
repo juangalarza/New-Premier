@@ -15,14 +15,14 @@ export interface UsuarioAdmin {
   last_sign_in: string | null;
 }
 
-type UsuarioRow = { id: string; nombre: string; apellido: string; rol: string };
+type UsuarioRow = { id: string; email: string | null; nombre: string; apellido: string; rol: string };
 
 export async function getUsuarios(): Promise<UsuarioAdmin[]> {
   const supabase = createAdminClient();
 
   const [authRes, usuariosRes] = await Promise.all([
     supabase.auth.admin.listUsers(),
-    supabase.from('usuarios').select('id, nombre, apellido, rol').eq('tenant_id', TENANT_ID),
+    supabase.from('usuarios').select('id, email, nombre, apellido, rol').eq('tenant_id', TENANT_ID),
   ]);
 
   const rows = (usuariosRes.data ?? []) as unknown as UsuarioRow[];
@@ -30,15 +30,18 @@ export async function getUsuarios(): Promise<UsuarioAdmin[]> {
 
   return (authRes.data?.users ?? [])
     .filter(u => usuariosMap.has(u.id))
-    .map(u => ({
-      id: u.id,
-      email: u.email ?? '',
-      nombre: usuariosMap.get(u.id)!.nombre,
-      apellido: usuariosMap.get(u.id)!.apellido,
-      rol: usuariosMap.get(u.id)!.rol as RolUsuario,
-      created_at: u.created_at,
-      last_sign_in: u.last_sign_in_at ?? null,
-    }));
+    .map(u => {
+      const row = usuariosMap.get(u.id)!;
+      return {
+        id: u.id,
+        email: row.email || u.email || '',
+        nombre: row.nombre,
+        apellido: row.apellido,
+        rol: row.rol as RolUsuario,
+        created_at: u.created_at,
+        last_sign_in: u.last_sign_in_at ?? null,
+      };
+    });
 }
 
 export interface UsuarioFormData {
@@ -63,6 +66,7 @@ export async function crearUsuario(data: UsuarioFormData): Promise<void> {
   const { error: dbError } = await supabase.from('usuarios').upsert({
     id: authData.user.id,
     tenant_id: TENANT_ID,
+    email: data.email,
     nombre: data.nombre,
     apellido: data.apellido,
     rol: data.rol,
@@ -91,9 +95,12 @@ export async function actualizarUsuario(id: string, data: UsuarioEditData): Prom
     if (error) throw new Error(error.message);
   }
 
+  const dbUpdate: Record<string, unknown> = { nombre: data.nombre, apellido: data.apellido, rol: data.rol };
+  if (data.email) dbUpdate.email = data.email;
+
   const { error: dbError } = await supabase
     .from('usuarios')
-    .update({ nombre: data.nombre, apellido: data.apellido, rol: data.rol } as never)
+    .update(dbUpdate as never)
     .eq('id', id)
     .eq('tenant_id', TENANT_ID);
   if (dbError) throw new Error(dbError.message);

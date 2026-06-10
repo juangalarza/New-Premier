@@ -3,11 +3,11 @@
 import * as React from 'react';
 import {
   Box, List, ListItem, ListItemButton, ListItemIcon,
-  ListItemText, Typography, Avatar, IconButton, Tooltip, Divider, Button,
+  ListItemText, Typography, Avatar, IconButton, Tooltip, Divider,
 } from '@mui/material';
 import {
   DashboardOutlined, CalendarMonthOutlined, DirectionsCarOutlined,
-  PeopleAltOutlined, SettingsOutlined, LogoutOutlined, CarRental,
+  PeopleAltOutlined, SettingsOutlined, LogoutOutlined,
   MonetizationOnOutlined, ReceiptLongOutlined, MenuBookOutlined,
   BarChartOutlined, PeopleOutlined, BuildOutlined, StoreOutlined,
 } from '@mui/icons-material';
@@ -32,6 +32,32 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [userInfo, setUserInfo] = React.useState<{ nombre: string; apellido: string; email: string; rol: string } | null>(null);
+
+  React.useEffect(() => {
+    supabaseBrowser.auth.getUser().then(async ({ data }) => {
+      if (!data.user) return;
+      const email = data.user.email ?? '';
+      const { data: row } = await supabaseBrowser
+        .from('usuarios')
+        .select('nombre, apellido, rol')
+        .eq('email', email)
+        .single();
+      setUserInfo({
+        nombre: row?.nombre ?? '',
+        apellido: row?.apellido ?? '',
+        email,
+        rol: row?.rol ?? '',
+      });
+    });
+  }, []);
+
+  const displayName = userInfo
+    ? `${userInfo.nombre} ${userInfo.apellido}`.trim() || userInfo.email
+    : '…';
+  const initials = userInfo
+    ? `${userInfo.nombre[0] ?? ''}${userInfo.apellido[0] ?? ''}`.toUpperCase() || '?'
+    : '?';
 
   const handleSignOut = async () => {
     try {
@@ -180,40 +206,6 @@ export default function Sidebar() {
         </List>
       </Box>
 
-      {/* ── Upgrade to Pro Button ───────────────────────── */}
-      <Box sx={{ px: 2, pt: 1, pb: 1, mt: 'auto' }}>
-        <Button
-          component="a"
-          href="#"
-          sx={{
-            background: 'linear-gradient(195deg, #49a3f1 0%, #1A73E8 100%)',
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: '0.75rem',
-            borderRadius: '8px',
-            py: 1.2,
-            width: '100%',
-            boxShadow: '0 4px 20px 0 rgba(26,115,232,0.40), 0 7px 10px -5px rgba(26,115,232,0.4)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s ease',
-            '&:hover': {
-              background: 'linear-gradient(195deg, #5aafec 0%, #1669d6 100%)',
-              boxShadow: '0 5px 22px 0 rgba(26,115,232,0.50)',
-              transform: 'translateY(-1px)',
-            },
-            '&:active': {
-              transform: 'translateY(0)',
-            },
-          }}
-        >
-          Upgrade to Pro
-        </Button>
-      </Box>
-
       {/* ── Divider + User ───────────────────────────────── */}
       <Box sx={{ px: 2, pb: 2, pt: 0.5 }}>
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)', mb: 1.5 }} />
@@ -235,14 +227,14 @@ export default function Sidebar() {
                 boxShadow: '0 2px 8px rgba(26,115,232,0.3)',
               }}
             >
-              AD
+              {initials}
             </Avatar>
             <Box sx={{ minWidth: 0 }}>
               <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#fff', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                Admin Demo
+                {displayName}
               </Typography>
-              <Typography sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1 }}>
-                Personal Admin
+              <Typography sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textTransform: 'capitalize' }}>
+                {userInfo?.rol ?? ''}
               </Typography>
             </Box>
           </Box>
