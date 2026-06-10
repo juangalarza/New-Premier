@@ -3,12 +3,13 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { TENANT_ID } from '@/lib/constants';
-import type { Categoria, Temporada } from '@/types';
+import type { Categoria, Temporada, Adicional } from '@/types';
 
 export interface TarifaMatrix {
   categorias: Categoria[];
   temporadas: Temporada[];
   precios: Record<string, Record<string, number>>;
+  adicionales: Adicional[];
 }
 
 type TarifaRow = { id: string; categoria_id: string; temporada_id: string; precio_por_dia: number };
@@ -16,10 +17,11 @@ type TarifaRow = { id: string; categoria_id: string; temporada_id: string; preci
 export async function getTarifaMatrix(): Promise<TarifaMatrix> {
   const supabase = createAdminClient();
 
-  const [catRes, tempRes, tarifaRes] = await Promise.all([
+  const [catRes, tempRes, tarifaRes, adicRes] = await Promise.all([
     supabase.from('categorias').select('*').eq('tenant_id', TENANT_ID).order('nombre'),
     supabase.from('temporadas').select('*').eq('tenant_id', TENANT_ID).order('fecha_inicio'),
     supabase.from('tarifas').select('id, categoria_id, temporada_id, precio_por_dia').eq('tenant_id', TENANT_ID),
+    supabase.from('adicionales').select('*').eq('tenant_id', TENANT_ID).order('nombre'),
   ]);
 
   const tarifas = (tarifaRes.data ?? []) as unknown as TarifaRow[];
@@ -33,6 +35,7 @@ export async function getTarifaMatrix(): Promise<TarifaMatrix> {
     categorias: (catRes.data ?? []) as Categoria[],
     temporadas: (tempRes.data ?? []) as Temporada[],
     precios,
+    adicionales: (adicRes.data ?? []) as Adicional[],
   };
 }
 
@@ -110,5 +113,37 @@ export async function eliminarCategoria(id: string) {
   const supabase = createAdminClient();
   await supabase.from('tarifas').delete().eq('categoria_id', id).eq('tenant_id', TENANT_ID);
   await supabase.from('categorias').delete().eq('id', id).eq('tenant_id', TENANT_ID);
+  revalidatePath('/dashboard/tarifas');
+}
+
+export async function upsertAdicional(data: {
+  id?: string;
+  nombre: string;
+  descripcion?: string | null;
+  precio_por_dia: number;
+}) {
+  const supabase = createAdminClient();
+  if (data.id) {
+    const { error } = await supabase
+      .from('adicionales')
+      .update({ nombre: data.nombre, descripcion: data.descripcion ?? null, precio_por_dia: data.precio_por_dia } as never)
+      .eq('id', data.id)
+      .eq('tenant_id', TENANT_ID);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase.from('adicionales').insert({
+      tenant_id: TENANT_ID,
+      nombre: data.nombre,
+      descripcion: data.descripcion ?? null,
+      precio_por_dia: data.precio_por_dia,
+    } as never);
+    if (error) throw new Error(error.message);
+  }
+  revalidatePath('/dashboard/tarifas');
+}
+
+export async function eliminarAdicional(id: string) {
+  const supabase = createAdminClient();
+  await supabase.from('adicionales').delete().eq('id', id).eq('tenant_id', TENANT_ID);
   revalidatePath('/dashboard/tarifas');
 }

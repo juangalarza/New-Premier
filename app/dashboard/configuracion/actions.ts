@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { TENANT_ID } from '@/lib/constants';
-import type { Cobertura, Adicional, Descuento, Tenant } from '@/types';
+import type { Cobertura, Adicional, Descuento, Tenant, CategoriaGasto } from '@/types';
 
 export async function getTenant(): Promise<Tenant | null> {
   const supabase = createAdminClient();
@@ -108,5 +108,56 @@ export async function toggleDescuento(id: string, activo: boolean) {
 export async function eliminarDescuento(id: string) {
   const supabase = createAdminClient();
   await supabase.from('descuentos').delete().eq('id', id).eq('tenant_id', TENANT_ID);
+  revalidatePath('/dashboard/configuracion');
+}
+
+// --- CATEGORÍAS DE GASTO ---
+
+export async function getCategoriasGasto(): Promise<CategoriaGasto[]> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from('categorias_gasto')
+    .select('*')
+    .eq('tenant_id', TENANT_ID)
+    .order('nombre');
+  return (data ?? []) as unknown as CategoriaGasto[];
+}
+
+export async function crearCategoriaGasto(data: { nombre: string; color: string }) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from('categorias_gasto').insert({
+    tenant_id: TENANT_ID,
+    nombre: data.nombre.trim(),
+    color: data.color,
+    activa: true,
+  } as never);
+  if (error) throw new Error(error.message);
+  revalidatePath('/dashboard/configuracion');
+}
+
+export async function actualizarCategoriaGasto(id: string, data: { nombre: string; color: string }) {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from('categorias_gasto')
+    .update({ nombre: data.nombre.trim(), color: data.color } as never)
+    .eq('id', id)
+    .eq('tenant_id', TENANT_ID);
+  if (error) throw new Error(error.message);
+  revalidatePath('/dashboard/configuracion');
+}
+
+export async function toggleCategoriaGasto(id: string, activa: boolean) {
+  const supabase = createAdminClient();
+  await supabase
+    .from('categorias_gasto')
+    .update({ activa } as never)
+    .eq('id', id)
+    .eq('tenant_id', TENANT_ID);
+  revalidatePath('/dashboard/configuracion');
+}
+
+export async function eliminarCategoriaGasto(id: string) {
+  const supabase = createAdminClient();
+  await supabase.from('categorias_gasto').delete().eq('id', id).eq('tenant_id', TENANT_ID);
   revalidatePath('/dashboard/configuracion');
 }

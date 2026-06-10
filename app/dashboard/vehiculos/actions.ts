@@ -86,3 +86,23 @@ export async function eliminarVehiculo(id: string) {
   revalidatePath('/dashboard/vehiculos');
   revalidatePath('/dashboard');
 }
+
+export async function getFacturadoPorVehiculo(): Promise<Record<string, number>> {
+  const supabase = createAdminClient();
+  const hace6Meses = new Date();
+  hace6Meses.setMonth(hace6Meses.getMonth() - 6);
+
+  const { data } = await supabase
+    .from('reservas')
+    .select('vehiculo_id, precio_total')
+    .eq('tenant_id', TENANT_ID)
+    .eq('estado', 'devuelta')
+    .gte('fecha_devolucion', hace6Meses.toISOString().split('T')[0])
+    .not('vehiculo_id', 'is', null);
+
+  const map: Record<string, number> = {};
+  for (const r of ((data ?? []) as unknown as { vehiculo_id: string; precio_total: number }[])) {
+    map[r.vehiculo_id] = (map[r.vehiculo_id] ?? 0) + (r.precio_total ?? 0);
+  }
+  return map;
+}

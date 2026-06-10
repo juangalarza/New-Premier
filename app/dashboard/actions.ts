@@ -2,7 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { TENANT_ID } from '@/lib/constants';
-import type { DashboardKPIs, ChartDataItem, RankingVehiculo, EntregaHoy } from '@/types';
+import type { DashboardKPIs, ChartDataItem, RankingVehiculo, EntregaHoy, UltimoGasto } from '@/types';
 
 export async function getKPIs(): Promise<DashboardKPIs> {
   const supabase = createAdminClient();
@@ -10,8 +10,11 @@ export async function getKPIs(): Promise<DashboardKPIs> {
   const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const inicioMesAnterior = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
   const finMesAnterior = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
+  const inicioMesFecha = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const inicioMesAntFecha = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+  const finMesAntFecha = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
 
-  const [ingresosRes, ingresosMesAntRes, vehiculosRes] = await Promise.all([
+  const [ingresosRes, ingresosMesAntRes, vehiculosRes, gastosMesRes, gastosMesAntRes] = await Promise.all([
     supabase
       .from('reservas')
       .select('total_pagado')
@@ -29,13 +32,29 @@ export async function getKPIs(): Promise<DashboardKPIs> {
       .from('vehiculos')
       .select('estado, es_propio')
       .eq('tenant_id', TENANT_ID),
+
+    supabase
+      .from('gastos')
+      .select('monto')
+      .eq('tenant_id', TENANT_ID)
+      .gte('fecha', inicioMesFecha),
+
+    supabase
+      .from('gastos')
+      .select('monto')
+      .eq('tenant_id', TENANT_ID)
+      .gte('fecha', inicioMesAntFecha)
+      .lte('fecha', finMesAntFecha),
   ]);
 
   type IngresoRow = { total_pagado: number };
   type VehEstRow = { estado: string; es_propio: boolean };
+  type GastoRow = { monto: number };
   const ingresosMes = ((ingresosRes.data ?? []) as unknown as IngresoRow[]).reduce((s, r) => s + (r.total_pagado ?? 0), 0);
   const ingresosMesAnterior = ((ingresosMesAntRes.data ?? []) as unknown as IngresoRow[]).reduce((s, r) => s + (r.total_pagado ?? 0), 0);
   const vehiculos = (vehiculosRes.data ?? []) as unknown as VehEstRow[];
+  const gastosMes = ((gastosMesRes.data ?? []) as unknown as GastoRow[]).reduce((s, r) => s + (r.monto ?? 0), 0);
+  const gastosMesAnterior = ((gastosMesAntRes.data ?? []) as unknown as GastoRow[]).reduce((s, r) => s + (r.monto ?? 0), 0);
   const totalVehiculos = vehiculos.length;
   const vehiculosPropios = vehiculos.filter(v => v.es_propio).length;
   const vehiculosNoPropios = vehiculos.filter(v => !v.es_propio).length;
@@ -46,6 +65,8 @@ export async function getKPIs(): Promise<DashboardKPIs> {
   return {
     ingresosMes,
     ingresosMesAnterior,
+    gastosMes,
+    gastosMesAnterior,
     totalVehiculos,
     vehiculosPropios,
     vehiculosNoPropios,
@@ -126,7 +147,7 @@ export async function getRanking(): Promise<RankingVehiculo[]> {
       total_facturado: stats[v.id]?.total_facturado ?? 0,
     }))
     .sort((a, b) => b.total_facturado - a.total_facturado)
-    .slice(0, 3);
+    .slice(0, 5);
 }
 
 export async function getEntregasHoy(): Promise<EntregaHoy[]> {
@@ -193,6 +214,18 @@ export async function getCategorias() {
     .eq('tenant_id', TENANT_ID)
     .order('nombre');
   return data ?? [];
+}
+
+export async function getUltimosGastos(): Promise<UltimoGasto[]> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from('gastos')
+    .select('id, categoria, monto, descripcion, fecha')
+    .eq('tenant_id', TENANT_ID)
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(10);
+  return (data ?? []) as UltimoGasto[];
 }
 
 export async function calcularCotizacion(

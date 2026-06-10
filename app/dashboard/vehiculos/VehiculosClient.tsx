@@ -9,13 +9,14 @@ import {
 } from '@mui/material';
 import {
   AddOutlined, EditOutlined, DeleteOutlined, DirectionsCarOutlined,
-  SearchOutlined, StoreOutlined,
+  SearchOutlined, StoreOutlined, OpenInNewOutlined,
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Vehiculo, Sucursal } from '@/types';
 import { crearVehiculo, actualizarVehiculo, eliminarVehiculo, type VehiculoFormData } from './actions';
+import { useRouter } from 'next/navigation';
 
 const schema = z.object({
   patente: z.string().min(6, 'Mínimo 6 caracteres').max(8),
@@ -51,13 +52,19 @@ const ESTADO_LABEL: Record<string, string> = {
   bloqueado: 'Bloqueado',
 };
 
+function formatARS(v: number) {
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(v);
+}
+
 interface Props {
   vehiculos: Vehiculo[];
   categorias: { id: string; nombre: string }[];
   sucursales: Sucursal[];
+  facturadoMap: Record<string, number>;
 }
 
-export default function VehiculosClient({ vehiculos: initialVehiculos, categorias, sucursales }: Props) {
+export default function VehiculosClient({ vehiculos: initialVehiculos, categorias, sucursales, facturadoMap }: Props) {
+  const router = useRouter();
   const [vehiculos, setVehiculos] = React.useState(initialVehiculos);
   const [busqueda, setBusqueda] = React.useState('');
   const [filtroSucursal, setFiltroSucursal] = React.useState('');
@@ -191,13 +198,14 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
               <TableCell>Estado</TableCell>
               <TableCell>Tipo</TableCell>
               <TableCell>Sucursal</TableCell>
+              <TableCell align="right">Facturado (6m)</TableCell>
               <TableCell align="right">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filtrados.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={11} align="center" sx={{ py: 6 }}>
                   <DirectionsCarOutlined sx={{ fontSize: 48, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
                   <Typography color="text.secondary">
                     {busqueda ? 'Sin resultados para esa búsqueda' : 'No hay vehículos cargados'}
@@ -261,6 +269,24 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
                     )}
                   </TableCell>
                   <TableCell align="right">
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 700,
+                        color: (facturadoMap[v.id] ?? 0) > 0 ? '#4f46e5' : '#94a3b8',
+                        fontSize: '0.82rem',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {(facturadoMap[v.id] ?? 0) > 0 ? formatARS(facturadoMap[v.id]) : '—'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="Ver detalle">
+                      <IconButton size="small" onClick={() => router.push(`/dashboard/vehiculos/${v.id}`)}>
+                        <OpenInNewOutlined fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     <Tooltip title="Editar">
                       <IconButton size="small" onClick={() => abrirEditar(v)}>
                         <EditOutlined fontSize="small" />

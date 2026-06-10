@@ -10,14 +10,16 @@ import {
 import {
   SaveOutlined, AddOutlined, EditOutlined, DeleteOutlined,
   BusinessOutlined, ShieldOutlined, AddCircleOutlineOutlined,
-  LocalOfferOutlined,
+  LocalOfferOutlined, CategoryOutlined,
 } from '@mui/icons-material';
 import {
   actualizarTenant, crearCobertura, actualizarCobertura, eliminarCobertura,
   crearAdicional, actualizarAdicional, eliminarAdicional,
   crearDescuento, toggleDescuento, eliminarDescuento,
+  crearCategoriaGasto, actualizarCategoriaGasto, toggleCategoriaGasto, eliminarCategoriaGasto,
+  getCategoriasGasto,
 } from './actions';
-import type { Tenant, Cobertura, Adicional, Descuento } from '@/types';
+import type { Tenant, Cobertura, Adicional, Descuento, CategoriaGasto } from '@/types';
 
 function formatARS(n: number) {
   return '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0 });
@@ -96,14 +98,26 @@ function ServicioDialog({ open, onClose, onSave, inicial, title }: ServicioDialo
   );
 }
 
+const PRESET_COLORS = [
+  { label: 'Naranja', value: '#f97316' },
+  { label: 'Violeta', value: '#8b5cf6' },
+  { label: 'Azul', value: '#3b82f6' },
+  { label: 'Gris', value: '#64748b' },
+  { label: 'Rojo', value: '#ef4444' },
+  { label: 'Verde', value: '#16a34a' },
+  { label: 'Amarillo', value: '#eab308' },
+  { label: 'Cian', value: '#06b6d4' },
+];
+
 interface Props {
   tenantInicial: Tenant | null;
   coberturasIniciales: Cobertura[];
   adicionalesIniciales: Adicional[];
   descuentosIniciales: Descuento[];
+  categoriasGastoIniciales: CategoriaGasto[];
 }
 
-export default function ConfiguracionClient({ tenantInicial, coberturasIniciales, adicionalesIniciales, descuentosIniciales }: Props) {
+export default function ConfiguracionClient({ tenantInicial, coberturasIniciales, adicionalesIniciales, descuentosIniciales, categoriasGastoIniciales }: Props) {
   const [tab, setTab] = React.useState(0);
 
   const [tenantForm, setTenantForm] = React.useState({
@@ -124,6 +138,12 @@ export default function ConfiguracionClient({ tenantInicial, coberturasIniciales
   const [descDialog, setDescDialog] = React.useState(false);
   const [descForm, setDescForm] = React.useState({ codigo: '', descuento_pct: '' });
   const [descLoading, setDescLoading] = React.useState(false);
+
+  const [categoriasGasto, setCategoriasGasto] = React.useState(categoriasGastoIniciales);
+  const [catDialog, setCatDialog] = React.useState<{ open: boolean; editando?: CategoriaGasto }>({ open: false });
+  const [catForm, setCatForm] = React.useState({ nombre: '', color: '#64748b' });
+  const [catLoading, setCatLoading] = React.useState(false);
+  const [catError, setCatError] = React.useState('');
 
   async function handleSaveTenant() {
     const pct = parseFloat(tenantForm.descuento_online_pct.replace(',', '.'));
@@ -149,6 +169,28 @@ export default function ConfiguracionClient({ tenantInicial, coberturasIniciales
   async function reloadDescuentos() {
     const { getDescuentos } = await import('./actions');
     setDescuentos(await getDescuentos());
+  }
+
+  async function reloadCategoriasGasto() {
+    setCategoriasGasto(await getCategoriasGasto());
+  }
+
+  async function handleGuardarCategoria() {
+    if (!catForm.nombre.trim()) { setCatError('El nombre es requerido.'); return; }
+    setCatLoading(true);
+    try {
+      if (catDialog.editando) {
+        await actualizarCategoriaGasto(catDialog.editando.id, catForm);
+      } else {
+        await crearCategoriaGasto(catForm);
+      }
+      await reloadCategoriasGasto();
+      setCatDialog({ open: false });
+    } catch (e: unknown) {
+      setCatError(e instanceof Error ? e.message : 'Error al guardar');
+    } finally {
+      setCatLoading(false);
+    }
   }
 
   async function handleCrearDescuento() {
@@ -181,6 +223,7 @@ export default function ConfiguracionClient({ tenantInicial, coberturasIniciales
           <Tab icon={<ShieldOutlined />} iconPosition="start" label="Coberturas" />
           <Tab icon={<AddCircleOutlineOutlined />} iconPosition="start" label="Adicionales" />
           <Tab icon={<LocalOfferOutlined />} iconPosition="start" label="Descuentos" />
+          <Tab icon={<CategoryOutlined />} iconPosition="start" label="Categ. Gastos" />
         </Tabs>
 
         <Box sx={{ px: 3, pb: 3 }}>
@@ -399,6 +442,82 @@ export default function ConfiguracionClient({ tenantInicial, coberturasIniciales
               </TableContainer>
             </Paper>
           </TabPanel>
+          {/* TAB 4: Categorías de Gastos */}
+          <TabPanel value={tab} index={4}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+              <Button variant="contained" startIcon={<AddOutlined />}
+                onClick={() => { setCatForm({ nombre: '', color: '#64748b' }); setCatError(''); setCatDialog({ open: true }); }}
+                sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}>
+                Nueva Categoría
+              </Button>
+            </Box>
+            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                      <TableCell sx={{ fontWeight: 700 }}>Nombre</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Color</TableCell>
+                      <TableCell sx={{ fontWeight: 700, textAlign: 'center' }}>Activa</TableCell>
+                      <TableCell sx={{ width: 80 }} />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {categoriasGasto.length === 0 && (
+                      <TableRow><TableCell colSpan={4} align="center" sx={{ py: 3, color: 'text.secondary' }}>Sin categorías</TableCell></TableRow>
+                    )}
+                    {categoriasGasto.map(c => (
+                      <TableRow key={c.id} hover>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: c.color, flexShrink: 0 }} />
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{c.nombre}</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Chip label={c.color} size="small" sx={{ bgcolor: `${c.color}22`, color: c.color, fontFamily: 'monospace', fontSize: '0.7rem' }} />
+                        </TableCell>
+                        <TableCell sx={{ textAlign: 'center' }}>
+                          <Switch
+                            size="small"
+                            checked={c.activa}
+                            onChange={async () => {
+                              await toggleCategoriaGasto(c.id, !c.activa);
+                              setCategoriasGasto(prev => prev.map(x => x.id === c.id ? { ...x, activa: !x.activa } : x));
+                            }}
+                            color="success"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={0.5}>
+                            <Tooltip title="Editar">
+                              <IconButton size="small" onClick={() => {
+                                setCatForm({ nombre: c.nombre, color: c.color });
+                                setCatError('');
+                                setCatDialog({ open: true, editando: c });
+                              }}>
+                                <EditOutlined fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Eliminar">
+                              <IconButton size="small" color="error" onClick={async () => {
+                                if (!confirm('¿Eliminar esta categoría?')) return;
+                                await eliminarCategoriaGasto(c.id);
+                                await reloadCategoriasGasto();
+                              }}>
+                                <DeleteOutlined fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </TabPanel>
+
         </Box>
       </Paper>
 
@@ -461,6 +580,52 @@ export default function ConfiguracionClient({ tenantInicial, coberturasIniciales
           <Button variant="contained" onClick={handleCrearDescuento} disabled={descLoading}
             sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}>
             {descLoading ? <CircularProgress size={18} color="inherit" /> : 'Crear'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {/* Categorías Gasto Dialog */}
+      <Dialog open={catDialog.open} onClose={() => setCatDialog({ open: false })} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>
+          {catDialog.editando ? 'Editar Categoría' : 'Nueva Categoría de Gasto'}
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
+          {catError && <Alert severity="error">{catError}</Alert>}
+          <TextField
+            label="Nombre"
+            size="small"
+            required
+            value={catForm.nombre}
+            onChange={e => setCatForm(f => ({ ...f, nombre: e.target.value }))}
+          />
+          <Box>
+            <Typography variant="caption" sx={{ color: 'text.secondary', mb: 1, display: 'block' }}>Color</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {PRESET_COLORS.map(pc => (
+                <Tooltip key={pc.value} title={pc.label}>
+                  <Box
+                    onClick={() => setCatForm(f => ({ ...f, color: pc.value }))}
+                    sx={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      bgcolor: pc.value,
+                      cursor: 'pointer',
+                      border: catForm.color === pc.value ? '3px solid #0f172a' : '3px solid transparent',
+                      outline: catForm.color === pc.value ? `2px solid ${pc.value}` : 'none',
+                      outlineOffset: 2,
+                      transition: 'all 0.15s',
+                    }}
+                  />
+                </Tooltip>
+              ))}
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCatDialog({ open: false })}>Cancelar</Button>
+          <Button variant="contained" onClick={handleGuardarCategoria} disabled={catLoading}
+            sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}>
+            {catLoading ? <CircularProgress size={18} color="inherit" /> : 'Guardar'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -189,10 +189,41 @@ export interface Mantenimiento {
   vehiculo?: { id: string; patente: string; marca: string; modelo: string; foto_url: string | null };
 }
 
+export interface CategoriaGasto {
+  id: string;
+  tenant_id: string;
+  nombre: string;
+  color: string;
+  activa: boolean;
+  created_at: string;
+}
+
+export interface Gasto {
+  id: string;
+  tenant_id: string;
+  vehiculo_id: string | null;
+  sucursal_id: string | null;
+  categoria: 'combustible' | 'mantenimiento' | 'seguro' | 'otros';
+  monto: number;
+  descripcion: string | null;
+  fecha: string;
+  created_at: string;
+}
+
+export interface UltimoGasto {
+  id: string;
+  categoria: string;
+  monto: number;
+  descripcion: string | null;
+  fecha: string;
+}
+
 // Dashboard types
 export interface DashboardKPIs {
   ingresosMes: number;
   ingresosMesAnterior: number;
+  gastosMes: number;
+  gastosMesAnterior: number;
   totalVehiculos: number;
   vehiculosPropios: number;
   vehiculosNoPropios: number;

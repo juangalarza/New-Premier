@@ -1,12 +1,12 @@
 export const dynamic = 'force-dynamic';
 
-import { getVehiculos, getCategorias } from './actions';
+import { getVehiculos, getCategorias, getFacturadoPorVehiculo } from './actions';
 import { getSucursales } from '@/app/dashboard/sucursales/actions';
 import VehiculosClient from './VehiculosClient';
 
 export default async function VehiculosPage() {
-  const [vehiculos, categorias, sucursales] = await Promise.all([
-    getVehiculos(), getCategorias(), getSucursales(),
+  const [vehiculos, categorias, sucursales, facturadoMap] = await Promise.all([
+    getVehiculos(), getCategorias(), getSucursales(), getFacturadoPorVehiculo(),
   ]);
-  return <VehiculosClient vehiculos={vehiculos} categorias={categorias} sucursales={sucursales} />;
+  return <VehiculosClient vehiculos={vehiculos} categorias={categorias} sucursales={sucursales} facturadoMap={facturadoMap} />;
 }

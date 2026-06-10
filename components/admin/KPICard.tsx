@@ -8,13 +8,15 @@ interface KPICardProps {
   value: string | number;
   subtitle?: string;
   delta?: number;
+  invertDelta?: boolean;
   icon: React.ReactNode;
   iconBg?: string;
 }
 
-export default function KPICard({ title, value, subtitle, delta, icon, iconBg = '#4f46e5' }: KPICardProps) {
+export default function KPICard({ title, value, subtitle, delta, invertDelta, icon, iconBg = '#4f46e5' }: KPICardProps) {
   const hasDelta = delta !== undefined;
-  const isPositive = (delta ?? 0) > 0;
+  const rawPositive = (delta ?? 0) > 0;
+  const isPositive = invertDelta ? !rawPositive : rawPositive;
   const isNeutral = delta === 0;
 
   return (

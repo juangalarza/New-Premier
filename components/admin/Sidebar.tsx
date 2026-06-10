@@ -10,6 +10,7 @@ import {
   PeopleAltOutlined, SettingsOutlined, LogoutOutlined,
   MonetizationOnOutlined, ReceiptLongOutlined, MenuBookOutlined,
   BarChartOutlined, PeopleOutlined, BuildOutlined, StoreOutlined,
+  AccountBalanceWalletOutlined,
 } from '@mui/icons-material';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabase/client';
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { text: 'Sucursales',   icon: <StoreOutlined />,           path: '/dashboard/sucursales' },
   { text: 'Clientes',      icon: <PeopleAltOutlined />,      path: '/dashboard/clientes' },
   { text: 'Tarifas',       icon: <MonetizationOnOutlined />, path: '/dashboard/tarifas' },
+  { text: 'Caja',          icon: <AccountBalanceWalletOutlined />, path: '/dashboard/caja' },
   { text: 'Agenda Diaria', icon: <MenuBookOutlined />,       path: '/dashboard/agenda' },
   { text: 'Reportes',      icon: <BarChartOutlined />,       path: '/dashboard/reportes' },
   { text: 'Usuarios',      icon: <PeopleOutlined />,         path: '/dashboard/usuarios' },

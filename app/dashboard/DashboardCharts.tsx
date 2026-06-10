@@ -10,9 +10,20 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
-import { EmojiEventsOutlined, CalendarTodayOutlined } from '@mui/icons-material';
-import type { ChartDataItem, RankingVehiculo, EntregaHoy } from '@/types';
+import { EmojiEventsOutlined, CalendarTodayOutlined, ReceiptLongOutlined, OpenInNewOutlined } from '@mui/icons-material';
+import type { ChartDataItem, RankingVehiculo, EntregaHoy, UltimoGasto } from '@/types';
 import { calcularCotizacion } from './actions';
+import { useRouter } from 'next/navigation';
+
+const GASTO_LABEL: Record<string, string> = {
+  combustible: 'Combustible', mantenimiento: 'Mantenimiento', seguro: 'Seguro', otros: 'Otros',
+};
+const GASTO_COLOR: Record<string, string> = {
+  combustible: '#f5a623', mantenimiento: '#4f46e5', seguro: '#0ea5e9', otros: '#6b7280',
+};
+const GASTO_BG: Record<string, string> = {
+  combustible: '#fff8eb', mantenimiento: '#eef2ff', seguro: '#e0f2fe', otros: '#f1f5f9',
+};
 
 interface Props {
   chartData: ChartDataItem[];
@@ -20,6 +31,7 @@ interface Props {
   entregas: EntregaHoy[];
   devoluciones: EntregaHoy[];
   categorias: { id: string; nombre: string }[];
+  ultimosGastos: UltimoGasto[];
 }
 
 function formatARS(v: number) {
@@ -32,7 +44,8 @@ function formatHora(iso: string) {
 
 const PIE_COLORS = ['#2dd4a0', '#f5a623', '#ef4444', '#6b7280'];
 
-export default function DashboardCharts({ chartData, ranking, entregas, devoluciones, categorias }: Props) {
+export default function DashboardCharts({ chartData, ranking, entregas, devoluciones, categorias, ultimosGastos }: Props) {
+  const router = useRouter();
   const [cotFechaDesde, setCotFechaDesde] = React.useState('');
   const [cotFechaHasta, setCotFechaHasta] = React.useState('');
   const [cotCategoria, setCotCategoria] = React.useState('');
@@ -99,7 +112,15 @@ export default function DashboardCharts({ chartData, ranking, entregas, devoluci
                 ) : (
                   ranking.map((v, i) => (
                     <Box key={v.vehiculo_id}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1.5 }}>
+                      <Box
+                        onClick={() => router.push(`/dashboard/vehiculos/${v.vehiculo_id}`)}
+                        sx={{
+                          display: 'flex', alignItems: 'center', gap: 1.5, py: 1.5,
+                          cursor: 'pointer', borderRadius: 2, px: 1, mx: -1,
+                          transition: 'background 0.15s',
+                          '&:hover': { bgcolor: '#f8fafc' },
+                        }}
+                      >
                         <Typography sx={{ fontWeight: 800, color: i === 0 ? '#f5a623' : '#94a3b8', minWidth: 20, fontSize: '1rem' }}>
                           #{i + 1}
                         </Typography>
@@ -116,6 +137,7 @@ export default function DashboardCharts({ chartData, ranking, entregas, devoluci
                           </Typography>
                           <Typography variant="caption" color="text.secondary">{v.total_reservas} res.</Typography>
                         </Box>
+                        <OpenInNewOutlined sx={{ fontSize: 14, color: '#cbd5e1' }} />
                       </Box>
                       {i < ranking.length - 1 && <Divider />}
                     </Box>
@@ -190,7 +212,70 @@ export default function DashboardCharts({ chartData, ranking, entregas, devoluci
         </Grid>
       </Grid>
 
-      {/* Fila 3: Entregas y Devoluciones del día */}
+      {/* Fila 3: Últimos gastos */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid size={{ xs: 12 }}>
+          <Card>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ReceiptLongOutlined sx={{ color: '#ef4444' }} />
+                  <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>
+                    Últimos gastos
+                  </Typography>
+                </Box>
+                <Chip label={ultimosGastos.length} size="small" sx={{ bgcolor: '#fee2e2', color: '#dc2626', fontWeight: 700 }} />
+              </Box>
+              {ultimosGastos.length === 0 ? (
+                <Box sx={{ py: 4, textAlign: 'center' }}>
+                  <ReceiptLongOutlined sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
+                  <Typography variant="body2" color="text.secondary">Sin gastos registrados aún</Typography>
+                </Box>
+              ) : (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Fecha</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Categoría</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Descripción</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }} align="right">Monto</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {ultimosGastos.map(g => (
+                      <TableRow key={g.id} hover>
+                        <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {new Date(g.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={GASTO_LABEL[g.categoria] ?? g.categoria}
+                            size="small"
+                            sx={{
+                              bgcolor: GASTO_BG[g.categoria] ?? '#f1f5f9',
+                              color: GASTO_COLOR[g.categoria] ?? '#6b7280',
+                              fontWeight: 700,
+                              fontSize: '0.7rem',
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.8rem', color: '#64748b' }}>
+                          {g.descripcion ?? '—'}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: '0.85rem', fontWeight: 700, color: '#dc2626', whiteSpace: 'nowrap' }}>
+                          {formatARS(g.monto)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Fila 4: Entregas y Devoluciones del día */}
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
