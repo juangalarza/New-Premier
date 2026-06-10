@@ -41,7 +41,7 @@ export default function Sidebar() {
       const { data: row } = await supabaseBrowser
         .from('usuarios')
         .select('nombre, apellido, rol')
-        .eq('email', email)
+        .eq('id', data.user.id)
         .single();
       setUserInfo({
         nombre: row?.nombre ?? '',
