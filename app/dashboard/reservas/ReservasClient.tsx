@@ -6,8 +6,9 @@ import {
   TableBody, Chip, IconButton, Tooltip, TextField, MenuItem, InputAdornment,
   Dialog, DialogTitle, DialogContent, DialogActions, Grid, Alert,
   FormControlLabel, Checkbox, Select, OutlinedInput, ListItemText,
-  Autocomplete, CircularProgress, Paper, List, ListItemButton,
+  Autocomplete, CircularProgress, Paper, List, ListItemButton, Fab, Collapse,
 } from '@mui/material';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import {
   AddOutlined, FileDownloadOutlined, SearchOutlined, ReceiptLongOutlined,
   FilterListOutlined, CloseOutlined,
@@ -109,6 +110,8 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
   const [miniLoading, setMiniLoading] = React.useState(false);
   const [miniError, setMiniError] = React.useState('');
   const [dniDropdownOpen, setDniDropdownOpen] = React.useState(false);
+  const [filtrosOpen, setFiltrosOpen] = React.useState(false);
+  const isMobile = useIsMobile();
 
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<NuevaReservaForm>({
     resolver: zodResolver(nuevaReservaSchema) as any,
@@ -261,7 +264,8 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
 
         {/* Barra de filtros */}
         <Card sx={{ p: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Desktop — fila única con todos los filtros */}
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
             <TextField
               placeholder="Buscar número, cliente, patente..."
               size="small"
@@ -291,11 +295,61 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
               Nueva reserva
             </Button>
           </Box>
+
+          {/* Mobile — buscador + toggle filtros */}
+          <Box sx={{ display: { xs: 'flex', md: 'none' }, gap: 1, alignItems: 'center' }}>
+            <TextField
+              placeholder="Buscar..."
+              size="small"
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              sx={{ flexGrow: 1 }}
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchOutlined sx={{ color: '#94a3b8' }} /></InputAdornment> } }}
+            />
+            <Tooltip title="Filtros">
+              <IconButton
+                size="small"
+                onClick={() => setFiltrosOpen(o => !o)}
+                sx={{
+                  color: filtrosOpen ? '#4f46e5' : '#64748b',
+                  border: '1px solid',
+                  borderColor: filtrosOpen ? '#4f46e5' : '#e2e8f0',
+                  borderRadius: 1,
+                }}
+              >
+                <FilterListOutlined sx={{ fontSize: 20 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Exportar .xlsx">
+              <IconButton onClick={handleExport} size="small" sx={{ color: '#64748b' }}>
+                <FileDownloadOutlined />
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          {/* Mobile — filtros colapsables */}
+          <Collapse in={filtrosOpen}>
+            <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 1.5, pt: 1.5 }}>
+              <TextField
+                select label="Estado" size="small" value={filtroEstado}
+                onChange={e => setFiltroEstado(e.target.value)} fullWidth
+              >
+                <MenuItem value="todos">Todos</MenuItem>
+                {Object.entries(ESTADO_STYLE).map(([k, v]) => <MenuItem key={k} value={k}>{v.label}</MenuItem>)}
+              </TextField>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField label="Desde" type="date" size="small" value={filtroDesde}
+                  onChange={e => setFiltroDesde(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ flex: 1 }} />
+                <TextField label="Hasta" type="date" size="small" value={filtroHasta}
+                  onChange={e => setFiltroHasta(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ flex: 1 }} />
+              </Box>
+            </Box>
+          </Collapse>
         </Card>
 
         {/* Tabla */}
         <Card sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ overflowX: 'auto', flexGrow: 1 }}>
+          <Box sx={{ overflowX: 'auto', flexGrow: 1, display: { xs: 'none', md: 'block' } }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow sx={{ '& th': { fontWeight: 700, fontSize: '0.75rem', color: '#64748b', bgcolor: '#f8fafc', borderBottom: '2px solid #e2e8f0' } }}>
@@ -382,12 +436,83 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
             </Table>
           </Box>
 
+          {/* Mobile — cards */}
+          <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', overflowY: 'auto', flexGrow: 1, p: 1.5, gap: 1 }}>
+            {filtradas.length === 0 ? (
+              <Box sx={{ py: 6, textAlign: 'center' }}>
+                <ReceiptLongOutlined sx={{ fontSize: 48, color: '#cbd5e1', mb: 1 }} />
+                <Typography color="text.secondary">Sin reservas</Typography>
+              </Box>
+            ) : filtradas.map(r => {
+              const est = ESTADO_STYLE[r.estado];
+              const isSelected = r.id === selectedId;
+              const saldo = r.precio_total - r.total_pagado;
+              return (
+                <Box
+                  key={r.id}
+                  onClick={() => setSelectedId(r.id === selectedId ? null : r.id)}
+                  sx={{
+                    p: 1.5,
+                    bgcolor: isSelected ? 'rgba(79,70,229,0.04)' : '#fff',
+                    border: `1px solid ${isSelected ? '#4f46e5' : '#e2e8f0'}`,
+                    borderRadius: 2,
+                    cursor: 'pointer',
+                    transition: 'border-color 0.2s',
+                  }}
+                >
+                  {/* ID + Estado */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
+                    <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.8rem', color: '#4f46e5' }}>
+                      #{r.id_corto}
+                    </Typography>
+                    <Chip label={est?.label} size="small"
+                      sx={{ bgcolor: est?.bg, color: est?.color, fontWeight: 600, fontSize: '0.7rem' }} />
+                  </Box>
+                  {/* Cliente + Vehículo */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                    <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: '#1e293b' }}>
+                      {r.cliente.nombre} {r.cliente.apellido}
+                    </Typography>
+                    <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.8rem', color: '#475569', flexShrink: 0 }}>
+                      {r.vehiculo?.patente ?? <span style={{ color: '#94a3b8' }}>Sin asignar</span>}
+                    </Typography>
+                  </Box>
+                  {/* Fechas + Días */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
+                    <Typography sx={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      {formatFecha(r.fecha_entrega)} → {formatFecha(r.fecha_devolucion)}
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.75rem', color: '#64748b', flexShrink: 0 }}>
+                      {diasReserva(r.fecha_entrega, r.fecha_devolucion)} días
+                    </Typography>
+                  </Box>
+                  {/* Total + Pagado */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 0.75, borderTop: '1px solid #f1f5f9' }}>
+                    <Typography sx={{ fontSize: '0.78rem', color: '#64748b' }}>
+                      Total: <span style={{ fontWeight: 700, color: '#1e293b' }}>{formatARS(r.precio_total)}</span>
+                    </Typography>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: saldo === 0 ? '#16a34a' : '#dc2626' }}>
+                        {formatARS(r.total_pagado)}
+                      </Typography>
+                      {saldo > 0 && (
+                        <Typography sx={{ fontSize: '0.7rem', color: '#dc2626', display: 'block' }}>
+                          -{formatARS(saldo)}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+
           {/* Footer */}
-          <Box sx={{ px: 3, py: 1.5, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#fafafa' }}>
+          <Box sx={{ px: { xs: 2, sm: 3 }, py: 1.5, borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 0.5, sm: 0 }, bgcolor: '#fafafa', flexShrink: 0 }}>
             <Typography variant="caption" color="text.secondary">
               {filtradas.length} reserva{filtradas.length !== 1 ? 's' : ''}
             </Typography>
-            <Box sx={{ display: 'flex', gap: 3 }}>
+            <Box sx={{ display: 'flex', gap: { xs: 2, sm: 3 }, flexWrap: 'wrap' }}>
               <Typography variant="caption" sx={{ fontWeight: 600 }}>
                 Total facturado: <span style={{ color: '#4f46e5' }}>{formatARS(totalFacturado)}</span>
               </Typography>
@@ -399,8 +524,17 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
         </Card>
       </Box>
 
+      {/* FAB — Nueva reserva en mobile */}
+      <Fab
+        color="primary"
+        onClick={abrirDialogNueva}
+        sx={{ position: 'fixed', bottom: 20, right: 20, display: { xs: 'flex', md: 'none' }, zIndex: 1000 }}
+      >
+        <AddOutlined />
+      </Fab>
+
       {/* Mini Dialog — Crear cliente rápido */}
-      <Dialog open={miniDialogOpen} onClose={() => setMiniDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={miniDialogOpen} onClose={() => setMiniDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: 700, fontFamily: 'Outfit', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           Nuevo cliente
           <IconButton size="small" onClick={() => setMiniDialogOpen(false)}><CloseOutlined fontSize="small" /></IconButton>
@@ -468,7 +602,7 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
       )}
 
       {/* Dialog Nueva Reserva */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: 700, fontFamily: 'Outfit', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           Nueva reserva
           <IconButton size="small" onClick={() => setDialogOpen(false)}><CloseOutlined fontSize="small" /></IconButton>

@@ -5,12 +5,13 @@ import {
   Box, Button, Card, CardContent, Typography, Table, TableHead,
   TableRow, TableCell, TableBody, Chip, Avatar, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  MenuItem, Grid, FormControlLabel, Checkbox, Alert, InputAdornment,
+  MenuItem, Grid, FormControlLabel, Checkbox, Alert, InputAdornment, Fab,
 } from '@mui/material';
 import {
   AddOutlined, EditOutlined, DeleteOutlined, DirectionsCarOutlined,
   SearchOutlined, StoreOutlined, OpenInNewOutlined,
 } from '@mui/icons-material';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -65,6 +66,7 @@ interface Props {
 
 export default function VehiculosClient({ vehiculos: initialVehiculos, categorias, sucursales, facturadoMap }: Props) {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [vehiculos, setVehiculos] = React.useState(initialVehiculos);
   const [busqueda, setBusqueda] = React.useState('');
   const [filtroSucursal, setFiltroSucursal] = React.useState('');
@@ -152,14 +154,14 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
   return (
     <Box>
       {/* Toolbar */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 2, flexWrap: 'wrap' }}>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 3, gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
           <TextField
             placeholder="Buscar patente, marca o modelo..."
             size="small"
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            sx={{ width: 280 }}
+            sx={{ width: { xs: '100%', sm: 280 } }}
             slotProps={{
               input: { startAdornment: <InputAdornment position="start"><SearchOutlined sx={{ color: '#94a3b8' }} /></InputAdornment> },
             }}
@@ -167,7 +169,7 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
           {sucursales.length > 0 && (
             <TextField
               select label="Sucursal" size="small" value={filtroSucursal}
-              onChange={e => setFiltroSucursal(e.target.value)} sx={{ width: 180 }}
+              onChange={e => setFiltroSucursal(e.target.value)} sx={{ width: { xs: '100%', sm: 180 } }}
             >
               <MenuItem value="">Todas</MenuItem>
               {sucursales.map(s => <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>)}
@@ -178,14 +180,14 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
           variant="contained"
           startIcon={<AddOutlined />}
           onClick={abrirCrear}
-          sx={{ fontWeight: 600 }}
+          sx={{ fontWeight: 600, display: { xs: 'none', md: 'inline-flex' } }}
         >
           Agregar vehículo
         </Button>
       </Box>
 
-      {/* Tabla */}
-      <Card>
+      {/* Tabla — solo desktop */}
+      <Card sx={{ display: { xs: 'none', md: 'block' } }}>
         <Table>
           <TableHead>
             <TableRow sx={{ '& th': { fontWeight: 700, fontSize: '0.8rem', color: '#64748b', backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' } }}>
@@ -311,8 +313,98 @@ export default function VehiculosClient({ vehiculos: initialVehiculos, categoria
         </Box>
       </Card>
 
+      {/* Mobile cards */}
+      <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 1 }}>
+        {filtrados.length === 0 ? (
+          <Box sx={{ py: 6, textAlign: 'center' }}>
+            <DirectionsCarOutlined sx={{ fontSize: 48, color: '#cbd5e1', mb: 1 }} />
+            <Typography color="text.secondary">
+              {busqueda ? 'Sin resultados para esa búsqueda' : 'No hay vehículos cargados'}
+            </Typography>
+          </Box>
+        ) : filtrados.map(v => (
+          <Card key={v.id} sx={{ p: 1.5 }}>
+            {/* Marca/Modelo + Patente */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+              <Avatar src={v.foto_url ?? undefined} variant="rounded" sx={{ width: 40, height: 32, borderRadius: '6px', bgcolor: '#f1f5f9', flexShrink: 0 }}>
+                <DirectionsCarOutlined sx={{ color: '#94a3b8', fontSize: 18 }} />
+              </Avatar>
+              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 700, fontSize: '0.88rem' }}>{v.marca} {v.modelo}</Typography>
+                <Typography variant="caption" color="text.secondary">{v.color ?? '—'}</Typography>
+              </Box>
+              <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.85rem', color: '#475569', flexShrink: 0 }}>
+                {v.patente}
+              </Typography>
+            </Box>
+            {/* Estado + Tipo */}
+            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+              <Chip label={ESTADO_LABEL[v.estado] ?? v.estado} size="small"
+                sx={{ bgcolor: ESTADO_COLORS[v.estado] ?? '#f1f5f9', color: ESTADO_TEXT[v.estado] ?? '#64748b', fontWeight: 600, fontSize: '0.7rem' }} />
+              <Chip label={v.es_propio ? 'Propio' : 'Tercero'} size="small" variant="outlined"
+                sx={{ fontWeight: 600, fontSize: '0.7rem', color: v.es_propio ? '#4f46e5' : '#6b7280' }} />
+            </Box>
+            {/* Detalles */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                {v.categoria?.nombre ?? '—'} · {v.anio} · {v.km_actual.toLocaleString('es-AR')} km
+              </Typography>
+              <Typography variant="caption" color="text.secondary">{v.combustible_actual}</Typography>
+            </Box>
+            {/* Sucursal + Facturado + Acciones */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 1, borderTop: '1px solid #f1f5f9' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                {v.sucursal ? (
+                  <>
+                    <StoreOutlined sx={{ fontSize: 13, color: '#4f46e5' }} />
+                    <Typography variant="caption">{(v.sucursal as any).nombre}</Typography>
+                  </>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">Sin sucursal</Typography>
+                )}
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: (facturadoMap[v.id] ?? 0) > 0 ? '#4f46e5' : '#94a3b8', mr: 0.5 }}>
+                  {(facturadoMap[v.id] ?? 0) > 0 ? formatARS(facturadoMap[v.id]) : '—'}
+                </Typography>
+                <Tooltip title="Ver detalle">
+                  <IconButton size="small" onClick={() => router.push(`/dashboard/vehiculos/${v.id}`)}>
+                    <OpenInNewOutlined sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Editar">
+                  <IconButton size="small" onClick={() => abrirEditar(v)}>
+                    <EditOutlined sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Eliminar">
+                  <IconButton size="small" color="error" onClick={() => setConfirmDelete(v)}>
+                    <DeleteOutlined sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
+          </Card>
+        ))}
+        {filtrados.length > 0 && (
+          <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
+            {filtrados.length} vehículo{filtrados.length !== 1 ? 's' : ''}
+            {busqueda ? ` · filtrado de ${vehiculos.length}` : ' en flota'}
+          </Typography>
+        )}
+      </Box>
+
+      {/* FAB — Agregar vehículo en mobile */}
+      <Fab
+        color="primary"
+        onClick={abrirCrear}
+        sx={{ position: 'fixed', bottom: 20, right: 20, display: { xs: 'flex', md: 'none' }, zIndex: 1000 }}
+      >
+        <AddOutlined />
+      </Fab>
+
       {/* Dialog Crear/Editar */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>
           {editando ? 'Editar vehículo' : 'Agregar vehículo'}
         </DialogTitle>

@@ -232,43 +232,77 @@ export default function DashboardCharts({ chartData, ranking, entregas, devoluci
                   <Typography variant="body2" color="text.secondary">Sin gastos registrados aún</Typography>
                 </Box>
               ) : (
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Fecha</TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Categoría</TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Descripción</TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }} align="right">Monto</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
+                <>
+                  {/* Desktop */}
+                  <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Fecha</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Categoría</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Descripción</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }} align="right">Monto</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {ultimosGastos.map(g => (
+                          <TableRow key={g.id} hover>
+                            <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                              {new Date(g.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={GASTO_LABEL[g.categoria] ?? g.categoria}
+                                size="small"
+                                sx={{
+                                  bgcolor: GASTO_BG[g.categoria] ?? '#f1f5f9',
+                                  color: GASTO_COLOR[g.categoria] ?? '#6b7280',
+                                  fontWeight: 700,
+                                  fontSize: '0.7rem',
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem', color: '#64748b' }}>
+                              {g.descripcion ?? '—'}
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontSize: '0.85rem', fontWeight: 700, color: '#dc2626', whiteSpace: 'nowrap' }}>
+                              {formatARS(g.monto)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+
+                  {/* Mobile */}
+                  <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column' }}>
                     {ultimosGastos.map(g => (
-                      <TableRow key={g.id} hover>
-                        <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                          {new Date(g.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={GASTO_LABEL[g.categoria] ?? g.categoria}
-                            size="small"
-                            sx={{
-                              bgcolor: GASTO_BG[g.categoria] ?? '#f1f5f9',
-                              color: GASTO_COLOR[g.categoria] ?? '#6b7280',
-                              fontWeight: 700,
-                              fontSize: '0.7rem',
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem', color: '#64748b' }}>
-                          {g.descripcion ?? '—'}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: '0.85rem', fontWeight: 700, color: '#dc2626', whiteSpace: 'nowrap' }}>
+                      <Box
+                        key={g.id}
+                        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, py: 1.25, borderBottom: '1px solid #f1f5f9' }}
+                      >
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+                            <Chip
+                              label={GASTO_LABEL[g.categoria] ?? g.categoria}
+                              size="small"
+                              sx={{ bgcolor: GASTO_BG[g.categoria] ?? '#f1f5f9', color: GASTO_COLOR[g.categoria] ?? '#6b7280', fontWeight: 700, fontSize: '0.68rem' }}
+                            />
+                            <Typography variant="caption" color="text.secondary">
+                              {new Date(g.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body2" sx={{ fontSize: '0.78rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {g.descripcion ?? '—'}
+                          </Typography>
+                        </Box>
+                        <Typography sx={{ fontWeight: 700, color: '#dc2626', fontSize: '0.85rem', flexShrink: 0 }}>
                           {formatARS(g.monto)}
-                        </TableCell>
-                      </TableRow>
+                        </Typography>
+                      </Box>
                     ))}
-                  </TableBody>
-                </Table>
+                  </Box>
+                </>
               )}
             </CardContent>
           </Card>
@@ -287,26 +321,53 @@ export default function DashboardCharts({ chartData, ranking, entregas, devoluci
                 <Chip label={entregas.length} size="small" sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700 }} />
               </Box>
               {entregas.length === 0 ? tablaVacia('Sin entregas programadas para hoy') : (
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Hora</TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Cliente</TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Vehículo</TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Lugar</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
+                <>
+                  {/* Desktop */}
+                  <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Hora</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Cliente</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Vehículo</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Lugar</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {entregas.map(e => (
+                          <TableRow key={e.id} hover>
+                            <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{formatHora(e.fecha_entrega)}</TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>{e.cliente_nombre} {e.cliente_apellido}</TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>{e.patente ?? '—'}</TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem', maxWidth: 120 }}>{e.lugar_entrega}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+
+                  {/* Mobile */}
+                  <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column' }}>
                     {entregas.map(e => (
-                      <TableRow key={e.id} hover>
-                        <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{formatHora(e.fecha_entrega)}</TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>{e.cliente_nombre} {e.cliente_apellido}</TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>{e.patente ?? '—'}</TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem', maxWidth: 120 }} >{e.lugar_entrega}</TableCell>
-                      </TableRow>
+                      <Box
+                        key={e.id}
+                        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, py: 1.25, borderBottom: '1px solid #f1f5f9' }}
+                      >
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                            {e.cliente_nombre} {e.cliente_apellido}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {e.patente ?? '—'} · {e.lugar_entrega}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#16a34a', fontSize: '0.85rem', flexShrink: 0 }}>
+                          {formatHora(e.fecha_entrega)}
+                        </Typography>
+                      </Box>
                     ))}
-                  </TableBody>
-                </Table>
+                  </Box>
+                </>
               )}
             </CardContent>
           </Card>
@@ -322,26 +383,53 @@ export default function DashboardCharts({ chartData, ranking, entregas, devoluci
                 <Chip label={devoluciones.length} size="small" sx={{ bgcolor: '#fef3c7', color: '#d97706', fontWeight: 700 }} />
               </Box>
               {devoluciones.length === 0 ? tablaVacia('Sin devoluciones programadas para hoy') : (
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Hora</TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Cliente</TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Vehículo</TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Lugar</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
+                <>
+                  {/* Desktop */}
+                  <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Hora</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Cliente</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Vehículo</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Lugar</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {devoluciones.map(d => (
+                          <TableRow key={d.id} hover>
+                            <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{formatHora(d.fecha_entrega)}</TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>{d.cliente_nombre} {d.cliente_apellido}</TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>{d.patente ?? '—'}</TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem', maxWidth: 120, whiteSpace: 'nowrap' }}>{d.lugar_entrega}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+
+                  {/* Mobile */}
+                  <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column' }}>
                     {devoluciones.map(d => (
-                      <TableRow key={d.id} hover>
-                        <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{formatHora(d.fecha_entrega)}</TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>{d.cliente_nombre} {d.cliente_apellido}</TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>{d.patente ?? '—'}</TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem', maxWidth: 120, whiteSpace: 'nowrap' }}>{d.lugar_entrega}</TableCell>
-                      </TableRow>
+                      <Box
+                        key={d.id}
+                        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, py: 1.25, borderBottom: '1px solid #f1f5f9' }}
+                      >
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                            {d.cliente_nombre} {d.cliente_apellido}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {d.patente ?? '—'} · {d.lugar_entrega}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#d97706', fontSize: '0.85rem', flexShrink: 0 }}>
+                          {formatHora(d.fecha_entrega)}
+                        </Typography>
+                      </Box>
                     ))}
-                  </TableBody>
-                </Table>
+                  </Box>
+                </>
               )}
             </CardContent>
           </Card>

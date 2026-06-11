@@ -4,13 +4,14 @@ import * as React from 'react';
 import {
   Box, Button, Card, CardContent, Typography, Table, TableHead, TableRow, TableCell,
   TableBody, Chip, Avatar, IconButton, Tooltip, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, MenuItem, Grid, Alert, InputAdornment,
+  DialogActions, TextField, MenuItem, Grid, Alert, InputAdornment, Fab,
 } from '@mui/material';
 import {
   AddOutlined, EditOutlined, DeleteOutlined, BuildOutlined, CheckCircleOutlined,
   SearchOutlined, WarningAmberOutlined, AccessTimeOutlined, EngineeringOutlined,
   DirectionsCarOutlined,
 } from '@mui/icons-material';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -110,6 +111,8 @@ export default function MantenimientoClient({ mantenimientos: initial, vehiculos
   const [confirmDelete, setConfirmDelete] = React.useState<MantenimientoConVehiculo | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
+
+  const isMobile = useIsMobile();
 
   // Form — crear/editar
   const { control, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
@@ -315,28 +318,28 @@ export default function MantenimientoClient({ mantenimientos: initial, vehiculos
       </Grid>
 
       {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', mb: 2.5, justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 2.5, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' } }}>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', width: { xs: '100%', sm: 'auto' } }}>
           <TextField
             placeholder="Buscar patente, modelo o descripción..."
             size="small"
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            sx={{ width: 300 }}
+            sx={{ width: { xs: '100%', sm: 300 } }}
             slotProps={{
               input: { startAdornment: <InputAdornment position="start"><SearchOutlined sx={{ color: '#94a3b8' }} /></InputAdornment> },
             }}
           />
           <TextField
             select size="small" value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}
-            sx={{ width: 160 }}
+            sx={{ width: { xs: '100%', sm: 160 } }}
           >
             <MenuItem value="todos">Todos los tipos</MenuItem>
             {Object.entries(TIPO_LABEL).map(([k, v]) => <MenuItem key={k} value={k}>{v}</MenuItem>)}
           </TextField>
           <TextField
             select size="small" value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
-            sx={{ width: 160 }}
+            sx={{ width: { xs: '100%', sm: 160 } }}
           >
             <MenuItem value="todos">Todos los estados</MenuItem>
             <MenuItem value="pendiente">Pendiente</MenuItem>
@@ -348,14 +351,14 @@ export default function MantenimientoClient({ mantenimientos: initial, vehiculos
           variant="contained"
           startIcon={<AddOutlined />}
           onClick={abrirCrear}
-          sx={{ fontWeight: 600 }}
+          sx={{ display: { xs: 'none', md: 'inline-flex' }, fontWeight: 600 }}
         >
           Nuevo mantenimiento
         </Button>
       </Box>
 
       {/* ── Tabla ────────────────────────────────────────────────────────────── */}
-      <Card>
+      <Card sx={{ display: { xs: 'none', md: 'block' } }}>
         <Table>
           <TableHead>
             <TableRow sx={{ '& th': { fontWeight: 700, fontSize: '0.78rem', color: '#64748b', backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' } }}>
@@ -494,8 +497,63 @@ export default function MantenimientoClient({ mantenimientos: initial, vehiculos
         </Box>
       </Card>
 
+      {/* ── Mobile cards ─────────────────────────────────────────────────────── */}
+      <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 1 }}>
+        {filtrados.length === 0 ? (
+          <Box sx={{ py: 6, textAlign: 'center' }}>
+            <BuildOutlined sx={{ fontSize: 40, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
+            <Typography variant="body2" color="text.secondary">
+              {busqueda || filtroTipo !== 'todos' || filtroEstado !== 'todos'
+                ? 'Sin resultados para los filtros aplicados'
+                : 'No hay mantenimientos registrados'}
+            </Typography>
+          </Box>
+        ) : filtrados.map(item => {
+          const isVencido = item.fecha_programada < today && item.estado !== 'realizado';
+          const tipoStyle = TIPO_COLOR[item.tipo] ?? TIPO_COLOR.otro;
+          const estadoStyle = ESTADO_STYLE[item.estado] ?? ESTADO_STYLE.pendiente;
+          return (
+            <Box key={item.id} sx={{ p: 1.5, bgcolor: isVencido ? '#fff5f5' : '#fff', border: `1px solid ${isVencido ? '#fca5a5' : '#e2e8f0'}`, borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Avatar src={item.vehiculo.foto_url ?? undefined} variant="rounded" sx={{ width: 36, height: 28, borderRadius: '6px', bgcolor: '#f1f5f9' }}>
+                  <DirectionsCarOutlined sx={{ color: '#94a3b8', fontSize: 16 }} />
+                </Avatar>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{item.vehiculo.patente}</Typography>
+                  <Typography variant="caption" color="text.secondary">{item.vehiculo.marca} {item.vehiculo.modelo}</Typography>
+                </Box>
+                <Chip label={TIPO_LABEL[item.tipo] ?? item.tipo} size="small" sx={{ bgcolor: tipoStyle.bg, color: tipoStyle.color, fontWeight: 600, fontSize: '0.72rem' }} />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Chip label={estadoStyle.label} size="small" sx={{ bgcolor: estadoStyle.bg, color: estadoStyle.color, fontWeight: 600, fontSize: '0.72rem' }} />
+                <Typography variant="caption" sx={{ fontWeight: isVencido ? 700 : 400, color: isVencido ? '#dc2626' : 'text.secondary' }}>
+                  {formatFecha(item.fecha_programada)}{isVencido ? ' · Vencido' : ''}
+                </Typography>
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>{item.descripcion}</Typography>
+              {(item.costo || item.km_proximo) && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  {item.costo ? `Costo: ${formatARS(item.costo)}` : ''}
+                  {item.costo && item.km_proximo ? ' · ' : ''}
+                  {item.km_proximo ? `c/${item.km_proximo.toLocaleString('es-AR')} km` : ''}
+                </Typography>
+              )}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                {item.estado !== 'realizado' && (
+                  <IconButton size="small" color="success" onClick={() => abrirRealizar(item)}>
+                    <CheckCircleOutlined fontSize="small" />
+                  </IconButton>
+                )}
+                <IconButton size="small" onClick={() => abrirEditar(item)}><EditOutlined fontSize="small" /></IconButton>
+                <IconButton size="small" color="error" onClick={() => setConfirmDelete(item)}><DeleteOutlined fontSize="small" /></IconButton>
+              </Box>
+            </Box>
+          );
+        })}
+      </Box>
+
       {/* ── Dialog crear / editar ────────────────────────────────────────────── */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>
           {editando ? 'Editar mantenimiento' : 'Nuevo mantenimiento'}
         </DialogTitle>
@@ -581,7 +639,7 @@ export default function MantenimientoClient({ mantenimientos: initial, vehiculos
       </Dialog>
 
       {/* ── Dialog marcar realizado ──────────────────────────────────────────── */}
-      <Dialog open={realizarOpen} onClose={() => setRealizarOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={realizarOpen} onClose={() => setRealizarOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>
           Registrar realización
         </DialogTitle>
@@ -672,6 +730,14 @@ export default function MantenimientoClient({ mantenimientos: initial, vehiculos
           </Button>
         </DialogActions>
       </Dialog>
+      {/* FAB mobile */}
+      <Fab
+        color="primary"
+        onClick={abrirCrear}
+        sx={{ position: 'fixed', bottom: 20, right: 20, display: { xs: 'flex', md: 'none' }, bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}
+      >
+        <AddOutlined />
+      </Fab>
     </Box>
   );
 }

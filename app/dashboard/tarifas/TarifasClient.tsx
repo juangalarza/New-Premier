@@ -17,6 +17,7 @@ import {
 } from './actions';
 import type { TarifaMatrix } from './actions';
 import type { Temporada, Adicional } from '@/types';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 const TEMPORADA_COLOR: Record<string, string> = {
   baja: '#3b82f6', media: '#f59e0b', alta: '#ef4444',
@@ -96,6 +97,8 @@ export default function TarifasClient({ matrixInicial }: Props) {
   const [error, setError] = React.useState('');
   const [adicDialog, setAdicDialog] = React.useState<{ open: boolean; editando?: Adicional }>({ open: false });
   const [adicForm, setAdicForm] = React.useState({ nombre: '', descripcion: '', precio_por_dia: '' });
+
+  const isMobile = useIsMobile();
 
   async function reloadMatrix() {
     const { getTarifaMatrix } = await import('./actions');
@@ -194,12 +197,12 @@ export default function TarifasClient({ matrixInicial }: Props) {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', mb: 3, flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>Tarifas</Typography>
           <Typography variant="body2" color="text.secondary">Precios por categoría y temporada (por día)</Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
           <Button variant="outlined" startIcon={<CalendarMonthOutlined />} onClick={openNuevaTemporada}>
             Nueva Temporada
           </Button>
@@ -230,7 +233,7 @@ export default function TarifasClient({ matrixInicial }: Props) {
 
       {/* Matrix */}
       {matrix.categorias.length > 0 && matrix.temporadas.length > 0 ? (
-        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflowX: 'auto' }}>
           <TableContainer>
             <Table>
               <TableHead>
@@ -311,56 +314,76 @@ export default function TarifasClient({ matrixInicial }: Props) {
             </Typography>
           </Paper>
         ) : (
-          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                    <TableCell sx={{ fontWeight: 700 }}>Nombre</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Descripción</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }} align="right">Precio / día</TableCell>
-                    <TableCell sx={{ width: 80 }} />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {matrix.adicionales.map(a => (
-                    <TableRow key={a.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{a.nombre}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">{a.descripcion ?? '—'}</Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#4f46e5' }}>
-                          ${a.precio_por_dia.toLocaleString('es-AR')}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
-                          <Tooltip title="Editar">
-                            <IconButton size="small" onClick={() => openEditarAdicional(a)}>
-                              <EditOutlined fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Eliminar">
-                            <IconButton size="small" color="error" onClick={() => handleEliminarAdicional(a.id)}>
-                              <DeleteOutlined fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
-                      </TableCell>
+          <>
+            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', display: { xs: 'none', md: 'block' } }}>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                      <TableCell sx={{ fontWeight: 700 }}>Nombre</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Descripción</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="right">Precio / día</TableCell>
+                      <TableCell sx={{ width: 80 }} />
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
+                  </TableHead>
+                  <TableBody>
+                    {matrix.adicionales.map(a => (
+                      <TableRow key={a.id} hover>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{a.nombre}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">{a.descripcion ?? '—'}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: '#4f46e5' }}>
+                            ${a.precio_por_dia.toLocaleString('es-AR')}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
+                            <Tooltip title="Editar">
+                              <IconButton size="small" onClick={() => openEditarAdicional(a)}>
+                                <EditOutlined fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Eliminar">
+                              <IconButton size="small" color="error" onClick={() => handleEliminarAdicional(a.id)}>
+                                <DeleteOutlined fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+            {/* Mobile cards */}
+            <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 1 }}>
+              {matrix.adicionales.map(a => (
+                <Box key={a.id} sx={{ p: 1.5, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{a.nombre}</Typography>
+                    {a.descripcion && <Typography variant="caption" color="text.secondary">{a.descripcion}</Typography>}
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#4f46e5', mt: 0.3 }}>
+                      ${a.precio_por_dia.toLocaleString('es-AR')}/día
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <IconButton size="small" onClick={() => openEditarAdicional(a)}><EditOutlined fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleEliminarAdicional(a.id)}><DeleteOutlined fontSize="small" /></IconButton>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </>
         )}
       </Box>
 
       {/* Dialog Adicional */}
-      <Dialog open={adicDialog.open} onClose={() => setAdicDialog({ open: false })} maxWidth="xs" fullWidth>
+      <Dialog open={adicDialog.open} onClose={() => setAdicDialog({ open: false })} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>
           {adicDialog.editando ? 'Editar Adicional' : 'Nuevo Adicional'}
         </DialogTitle>
@@ -412,7 +435,7 @@ export default function TarifasClient({ matrixInicial }: Props) {
       </Dialog>
 
       {/* Dialog Temporada */}
-      <Dialog open={tempDialog.open} onClose={() => setTempDialog({ open: false })} maxWidth="xs" fullWidth>
+      <Dialog open={tempDialog.open} onClose={() => setTempDialog({ open: false })} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>
           {tempDialog.editando ? 'Editar Temporada' : 'Nueva Temporada'}
         </DialogTitle>
@@ -456,7 +479,7 @@ export default function TarifasClient({ matrixInicial }: Props) {
       </Dialog>
 
       {/* Dialog Categoría */}
-      <Dialog open={catDialog} onClose={() => setCatDialog(false)} maxWidth="xs" fullWidth>
+      <Dialog open={catDialog} onClose={() => setCatDialog(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>Nueva Categoría</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
           <TextField label="Nombre" size="small" value={catNombre} onChange={e => setCatNombre(e.target.value)} required />

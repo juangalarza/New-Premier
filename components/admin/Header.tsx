@@ -14,6 +14,7 @@ import {
   Settings,
   Person,
   Home,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
 import { usePathname } from 'next/navigation';
 
@@ -30,7 +31,11 @@ const SEGMENT_NAMES: Record<string, string> = {
   configuracion: 'Configuración',
 };
 
-export default function Header() {
+interface HeaderProps {
+  onMenuClick: () => void;
+}
+
+export default function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname();
   const segment = pathname.split('/').filter(Boolean).pop() ?? '';
   const displayName = SEGMENT_NAMES[segment] ?? 'Dashboard';
@@ -40,17 +45,32 @@ export default function Header() {
       sx={{
         height: 'auto',
         backgroundColor: 'transparent',
-        pt: 3,
+        pt: { xs: 1.5, md: 3 },
         pb: 1.5,
-        px: 4,
+        px: { xs: 1.5, sm: 2, md: 3, lg: 4 },
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexShrink: 0,
+        gap: 1,
       }}
     >
+      {/* Hamburger — solo visible en xs/sm/md */}
+      <IconButton
+        onClick={onMenuClick}
+        size="small"
+        sx={{
+          display: { xs: 'flex', lg: 'none' },
+          color: '#344767',
+          mr: 0.5,
+          flexShrink: 0,
+        }}
+      >
+        <MenuIcon />
+      </IconButton>
+
       {/* Title & breadcrumbs */}
-      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 }}>
         <Breadcrumbs
           aria-label="breadcrumb"
           separator="/"
@@ -103,12 +123,13 @@ export default function Header() {
       </Box>
 
       {/* Quick actions (Search & Icon Actions) */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        {/* Minimalist Search Input */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+        {/* Minimalist Search Input — oculto en mobile */}
         <TextField
           placeholder="Search here"
           size="small"
           sx={{
+            display: { xs: 'none', md: 'flex' },
             '& .MuiOutlinedInput-root': {
               borderRadius: '8px',
               backgroundColor: '#ffffff',

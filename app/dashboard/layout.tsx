@@ -10,6 +10,8 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
+
   return (
     <Box
       sx={{
@@ -17,11 +19,11 @@ export default function AdminLayout({
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',
-        backgroundColor: '#f8fafc', // Slate 50 background
+        backgroundColor: '#f8fafc',
       }}
     >
-      {/* Fixed Navigation Sidebar */}
-      <Sidebar />
+      {/* Navigation Sidebar — permanent on lg+, Drawer temporal en mobile/tablet */}
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Administrative Workspace */}
       <Box
@@ -31,10 +33,11 @@ export default function AdminLayout({
           flexGrow: 1,
           height: '100%',
           overflow: 'hidden',
+          minWidth: 0,
         }}
       >
         {/* Workspace Sticky Header */}
-        <Header />
+        <Header onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Dynamic page content scroll slot */}
         <Box
@@ -42,7 +45,7 @@ export default function AdminLayout({
           sx={{
             flexGrow: 1,
             overflowY: 'auto',
-            p: 4,
+            p: { xs: 1.5, sm: 2, md: 3, lg: 4 },
             backgroundColor: '#f8fafc',
           }}
         >

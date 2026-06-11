@@ -4,11 +4,12 @@ import * as React from 'react';
 import {
   Box, Button, Card, Typography, Table, TableHead, TableRow,
   TableCell, TableBody, IconButton, Tooltip, Dialog, DialogTitle,
-  DialogContent, DialogActions, TextField, Grid, Alert, InputAdornment, Avatar,
+  DialogContent, DialogActions, TextField, Grid, Alert, InputAdornment, Avatar, Fab,
 } from '@mui/material';
 import {
   AddOutlined, EditOutlined, DeleteOutlined, PeopleAltOutlined, SearchOutlined,
 } from '@mui/icons-material';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -41,6 +42,7 @@ function formatFecha(iso: string) {
 }
 
 export default function ClientesClient({ clientes: initialClientes }: Props) {
+  const isMobile = useIsMobile();
   const [clientes, setClientes] = React.useState(initialClientes);
   const [busqueda, setBusqueda] = React.useState('');
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -115,23 +117,23 @@ export default function ClientesClient({ clientes: initialClientes }: Props) {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 1 }}>
         <TextField
           placeholder="Buscar nombre, email o DNI..."
           size="small"
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
-          sx={{ width: 320 }}
+          sx={{ width: { xs: '100%', sm: 320 }, flexGrow: { xs: 1, sm: 0 } }}
           slotProps={{
             input: { startAdornment: <InputAdornment position="start"><SearchOutlined sx={{ color: '#94a3b8' }} /></InputAdornment> },
           }}
         />
-        <Button variant="contained" startIcon={<AddOutlined />} onClick={abrirCrear} sx={{ fontWeight: 600 }}>
+        <Button variant="contained" startIcon={<AddOutlined />} onClick={abrirCrear} sx={{ fontWeight: 600, display: { xs: 'none', md: 'inline-flex' }, flexShrink: 0 }}>
           Agregar cliente
         </Button>
       </Box>
 
-      <Card>
+      <Card sx={{ display: { xs: 'none', md: 'block' } }}>
         <Table>
           <TableHead>
             <TableRow sx={{ '& th': { fontWeight: 700, fontSize: '0.8rem', color: '#64748b', backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' } }}>
@@ -198,8 +200,83 @@ export default function ClientesClient({ clientes: initialClientes }: Props) {
         </Box>
       </Card>
 
+      {/* Mobile cards */}
+      <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 1 }}>
+        {filtrados.length === 0 ? (
+          <Box sx={{ py: 6, textAlign: 'center' }}>
+            <PeopleAltOutlined sx={{ fontSize: 48, color: '#cbd5e1', mb: 1 }} />
+            <Typography color="text.secondary">
+              {busqueda ? 'Sin resultados para esa búsqueda' : 'No hay clientes cargados'}
+            </Typography>
+          </Box>
+        ) : filtrados.map(c => (
+          <Box key={c.id} sx={{ p: 1.5, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+            {/* Avatar + Nombre + Acciones */}
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1 }}>
+              <Avatar sx={{ width: 36, height: 36, bgcolor: '#4f46e5', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0 }}>
+                {getInitials(c.nombre, c.apellido)}
+              </Avatar>
+              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 700, fontSize: '0.88rem' }}>{c.nombre} {c.apellido}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {c.email}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', flexShrink: 0 }}>
+                <Tooltip title="Editar">
+                  <IconButton size="small" onClick={() => abrirEditar(c)}>
+                    <EditOutlined sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Eliminar">
+                  <IconButton size="small" color="error" onClick={() => setConfirmDelete(c)}>
+                    <DeleteOutlined sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
+            {/* DNI + Licencia */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 0.75 }}>
+              <Typography variant="caption" color="text.secondary">
+                DNI: <span style={{ color: '#1e293b', fontWeight: 600 }}>{c.dni_pasaporte}</span>
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Lic: <span style={{ color: '#1e293b', fontWeight: 600 }}>{c.licencia_conducir}</span>
+              </Typography>
+            </Box>
+            {/* Tel (link) + Ciudad */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography
+                variant="caption"
+                component="a"
+                href={`tel:${c.telefono}`}
+                sx={{ color: '#4f46e5', fontWeight: 600, textDecoration: 'none' }}
+              >
+                📞 {c.telefono}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">{c.ciudad}, {c.pais}</Typography>
+            </Box>
+          </Box>
+        ))}
+        {filtrados.length > 0 && (
+          <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
+            {filtrados.length} cliente{filtrados.length !== 1 ? 's' : ''}
+            {busqueda ? ` · filtrado de ${clientes.length}` : ''}
+          </Typography>
+        )}
+      </Box>
+
+      {/* FAB — Agregar cliente en mobile */}
+      <Fab
+        color="primary"
+        onClick={abrirCrear}
+        sx={{ position: 'fixed', bottom: 20, right: 20, display: { xs: 'flex', md: 'none' }, zIndex: 1000 }}
+      >
+        <AddOutlined />
+      </Fab>
+
       {/* Dialog Crear/Editar */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>
           {editando ? 'Editar cliente' : 'Agregar cliente'}
         </DialogTitle>

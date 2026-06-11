@@ -83,22 +83,22 @@ export default function AgendaClient({ fecha, entregasIniciales, devolucionesIni
   const sinVehiculo = entregas.filter(e => !e.vehiculo).length;
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 }, maxWidth: 1200, mx: 'auto' }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'flex-start' }, justifyContent: 'space-between', mb: 3, flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>Agenda Diaria</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, textTransform: 'capitalize' }}>
             {formatFecha(selectedDate)}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <TextField
             type="date"
             size="small"
             value={selectedDate}
             onChange={e => setSelectedDate(e.target.value)}
-            sx={{ width: 180 }}
+            sx={{ width: { xs: '100%', sm: 180 } }}
           />
           <Button
             variant="contained"
@@ -130,7 +130,7 @@ export default function AgendaClient({ fecha, entregasIniciales, devolucionesIni
       )}
 
       {/* Stats chips */}
-      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+      <Stack direction="row" spacing={2} sx={{ mb: 3, flexWrap: 'wrap', gap: 1 }}>
         <Chip
           icon={<DirectionsCarOutlined />}
           label={`${entregas.length} entrega${entregas.length !== 1 ? 's' : ''}`}
@@ -151,7 +151,9 @@ export default function AgendaClient({ fecha, entregasIniciales, devolucionesIni
       <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: 'Outfit', mb: 1.5 }}>
         Entregas del Día
       </Typography>
-      <Paper variant="outlined" sx={{ mb: 4, overflow: 'hidden', borderRadius: 2 }}>
+
+      {/* Desktop */}
+      <Paper variant="outlined" sx={{ mb: 4, overflow: 'hidden', borderRadius: 2, display: { xs: 'none', md: 'block' } }}>
         <TableContainer>
           <Table size="small">
             <TableHead>
@@ -243,11 +245,75 @@ export default function AgendaClient({ fecha, entregasIniciales, devolucionesIni
         </TableContainer>
       </Paper>
 
+      {/* Mobile Entregas cards */}
+      <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 1, mb: 4 }}>
+        {entregas.length === 0 ? (
+          <Box sx={{ py: 4, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">Sin entregas programadas para este día</Typography>
+          </Box>
+        ) : entregas.map(e => {
+          const alert = !e.vehiculo;
+          return (
+            <Box key={e.id} sx={{ p: 1.5, bgcolor: alert ? '#fef2f2' : '#fff', border: `1px solid ${alert ? '#fca5a5' : '#e2e8f0'}`, borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: alert ? 'error.main' : 'text.primary' }}>
+                  {formatHora(e.fecha_entrega)}
+                </Typography>
+                <Chip label={e.estado} size="small" color={ESTADO_COLOR[e.estado] ?? 'default'} variant="outlined" sx={{ fontWeight: 600, fontSize: 11 }} />
+              </Box>
+              {e.vehiculo ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{e.vehiculo.patente}</Typography>
+                  <Typography variant="caption" color="text.secondary">· {e.vehiculo.modelo}</Typography>
+                  {e.vehiculo.combustible_actual && (
+                    <>
+                      <LocalGasStationOutlined sx={{ fontSize: 12, color: 'text.disabled', ml: 0.5 }} />
+                      <Typography variant="caption" color="text.disabled">{COMBUSTIBLE_LABEL[e.vehiculo.combustible_actual]}</Typography>
+                    </>
+                  )}
+                </Box>
+              ) : (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, color: 'error.main' }}>
+                  <WarningAmberOutlined sx={{ fontSize: 14 }} />
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>Sin vehículo asignado</Typography>
+                </Box>
+              )}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Avatar sx={{ width: 24, height: 24, fontSize: 10, bgcolor: '#4f46e5' }}>
+                  {e.cliente.nombre[0]}{e.cliente.apellido[0]}
+                </Avatar>
+                <Typography variant="body2">{e.cliente.nombre} {e.cliente.apellido}</Typography>
+                {e.cliente.telefono && (
+                  <Typography component="a" href={`tel:${e.cliente.telefono}`} variant="caption" sx={{ color: '#4f46e5', textDecoration: 'none', ml: 'auto' }}>
+                    {e.cliente.telefono}
+                  </Typography>
+                )}
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <PlaceOutlined sx={{ fontSize: 13, color: 'text.disabled' }} />
+                <Typography variant="caption" color="text.secondary">{e.lugar_entrega}</Typography>
+                {e.numero_vuelo && (
+                  <>
+                    <FlightOutlined sx={{ fontSize: 12, color: 'text.disabled', ml: 0.5 }} />
+                    <Typography variant="caption" color="text.secondary">Vuelo {e.numero_vuelo}</Typography>
+                  </>
+                )}
+              </Box>
+              {e.observaciones && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.3 }}>{e.observaciones}</Typography>
+              )}
+            </Box>
+          );
+        })}
+      </Box>
+
       {/* DEVOLUCIONES */}
       <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: 'Outfit', mb: 1.5 }}>
         Devoluciones del Día
       </Typography>
-      <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: 2 }}>
+
+      {/* Desktop */}
+      <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: 2, display: { xs: 'none', md: 'block' } }}>
         <TableContainer>
           <Table size="small">
             <TableHead>
@@ -314,6 +380,48 @@ export default function AgendaClient({ fecha, entregasIniciales, devolucionesIni
           </Table>
         </TableContainer>
       </Paper>
+
+      {/* Mobile Devoluciones cards */}
+      <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 1 }}>
+        {devs.length === 0 ? (
+          <Box sx={{ py: 4, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">Sin devoluciones programadas para este día</Typography>
+          </Box>
+        ) : devs.map(d => (
+          <Box key={d.id} sx={{ p: 1.5, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatHora(d.fecha_devolucion)}</Typography>
+              {d.km_devolucion != null && (
+                <Typography variant="caption" color="text.secondary">{d.km_devolucion.toLocaleString('es-AR')} km</Typography>
+              )}
+            </Box>
+            {d.vehiculo && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>{d.vehiculo.patente}</Typography>
+                <Typography variant="caption" color="text.secondary">· {d.vehiculo.modelo}</Typography>
+              </Box>
+            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+              <Avatar sx={{ width: 24, height: 24, fontSize: 10, bgcolor: '#f59e0b' }}>
+                {d.cliente.nombre[0]}{d.cliente.apellido[0]}
+              </Avatar>
+              <Typography variant="body2">{d.cliente.nombre} {d.cliente.apellido}</Typography>
+              {d.cliente.telefono && (
+                <Typography component="a" href={`tel:${d.cliente.telefono}`} variant="caption" sx={{ color: '#4f46e5', textDecoration: 'none', ml: 'auto' }}>
+                  {d.cliente.telefono}
+                </Typography>
+              )}
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <PlaceOutlined sx={{ fontSize: 13, color: 'text.disabled' }} />
+              <Typography variant="caption" color="text.secondary">{d.lugar_devolucion}</Typography>
+            </Box>
+            {d.observaciones && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.3 }}>{d.observaciones}</Typography>
+            )}
+          </Box>
+        ))}
+      </Box>
     </Box>
   );
 }

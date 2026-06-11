@@ -20,6 +20,7 @@ import {
   getCategoriasGasto,
 } from './actions';
 import type { Tenant, Cobertura, Adicional, Descuento, CategoriaGasto } from '@/types';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 function formatARS(n: number) {
   return '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0 });
@@ -44,6 +45,7 @@ interface ServicioDialogProps {
 }
 
 function ServicioDialog({ open, onClose, onSave, inicial, title }: ServicioDialogProps) {
+  const isMobile = useIsMobile();
   const [nombre, setNombre] = React.useState(inicial?.nombre ?? '');
   const [descripcion, setDescripcion] = React.useState(inicial?.descripcion ?? '');
   const [precio, setPrecio] = React.useState(inicial?.precio_por_dia != null ? String(inicial.precio_por_dia) : '');
@@ -72,7 +74,7 @@ function ServicioDialog({ open, onClose, onSave, inicial, title }: ServicioDialo
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth fullScreen={isMobile}>
       <DialogTitle sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>{title}</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
         {error && <Alert severity="error">{error}</Alert>}
@@ -119,6 +121,7 @@ interface Props {
 
 export default function ConfiguracionClient({ tenantInicial, coberturasIniciales, adicionalesIniciales, descuentosIniciales, categoriasGastoIniciales }: Props) {
   const [tab, setTab] = React.useState(0);
+  const isMobile = useIsMobile();
 
   const [tenantForm, setTenantForm] = React.useState({
     nombre: tenantInicial?.nombre ?? '',
@@ -218,7 +221,7 @@ export default function ConfiguracionClient({ tenantInicial, coberturasIniciales
       <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: 'Outfit', mb: 3 }}>Configuración</Typography>
 
       <Paper variant="outlined" sx={{ borderRadius: 2 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: '1px solid #f1f5f9', px: 2 }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{ borderBottom: '1px solid #f1f5f9', px: 2 }}>
           <Tab icon={<BusinessOutlined />} iconPosition="start" label="Empresa" />
           <Tab icon={<ShieldOutlined />} iconPosition="start" label="Coberturas" />
           <Tab icon={<AddCircleOutlineOutlined />} iconPosition="start" label="Adicionales" />
@@ -554,7 +557,7 @@ export default function ConfiguracionClient({ tenantInicial, coberturasIniciales
       />
 
       {/* Descuento Dialog */}
-      <Dialog open={descDialog} onClose={() => setDescDialog(false)} maxWidth="xs" fullWidth>
+      <Dialog open={descDialog} onClose={() => setDescDialog(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>Nuevo Código de Descuento</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
           <TextField
@@ -584,7 +587,7 @@ export default function ConfiguracionClient({ tenantInicial, coberturasIniciales
         </DialogActions>
       </Dialog>
       {/* Categorías Gasto Dialog */}
-      <Dialog open={catDialog.open} onClose={() => setCatDialog({ open: false })} maxWidth="xs" fullWidth>
+      <Dialog open={catDialog.open} onClose={() => setCatDialog({ open: false })} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>
           {catDialog.editando ? 'Editar Categoría' : 'Nueva Categoría de Gasto'}
         </DialogTitle>

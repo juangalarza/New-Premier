@@ -3,7 +3,7 @@
 import * as React from 'react';
 import {
   Box, List, ListItem, ListItemButton, ListItemIcon,
-  ListItemText, Typography, Avatar, IconButton, Tooltip, Divider,
+  ListItemText, Typography, Avatar, IconButton, Tooltip, Divider, Drawer,
 } from '@mui/material';
 import {
   DashboardOutlined, CalendarMonthOutlined, DirectionsCarOutlined,
@@ -21,7 +21,7 @@ const NAV_ITEMS = [
   { text: 'Reservas',      icon: <ReceiptLongOutlined />,    path: '/dashboard/reservas' },
   { text: 'Vehículos',     icon: <DirectionsCarOutlined />,  path: '/dashboard/vehiculos' },
   { text: 'Mantenimiento', icon: <BuildOutlined />,          path: '/dashboard/mantenimiento' },
-  { text: 'Sucursales',   icon: <StoreOutlined />,           path: '/dashboard/sucursales' },
+  { text: 'Sucursales',    icon: <StoreOutlined />,          path: '/dashboard/sucursales' },
   { text: 'Clientes',      icon: <PeopleAltOutlined />,      path: '/dashboard/clientes' },
   { text: 'Tarifas',       icon: <MonetizationOnOutlined />, path: '/dashboard/tarifas' },
   { text: 'Caja',          icon: <AccountBalanceWalletOutlined />, path: '/dashboard/caja' },
@@ -31,7 +31,14 @@ const NAV_ITEMS = [
   { text: 'Configuración', icon: <SettingsOutlined />,       path: '/dashboard/configuracion' },
 ];
 
-export default function Sidebar() {
+const SIDEBAR_BG = 'linear-gradient(195deg, #42424a 0%, #191919 100%)';
+
+interface SidebarProps {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [userInfo, setUserInfo] = React.useState<{ nombre: string; apellido: string; email: string; rol: string } | null>(null);
@@ -73,22 +80,9 @@ export default function Sidebar() {
     router.refresh();
   };
 
-  return (
-    <Box
-      sx={{
-        width: 250,
-        height: 'calc(100vh - 32px)',
-        flexShrink: 0,
-        background: 'linear-gradient(195deg, #42424a 0%, #191919 100%)',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 4px 20px 0 rgba(0,0,0,0.14), 0 7px 10px -5px rgba(0,0,0,0.4)',
-        borderRadius: '16px',
-        m: 2,
-        overflowX: 'hidden',
-        transition: 'all 0.3s ease',
-      }}
-    >
+  // Contenido compartido entre desktop y mobile
+  const content = (
+    <>
       {/* ── Brand ────────────────────────────────────────── */}
       <Box
         sx={{
@@ -150,7 +144,7 @@ export default function Sidebar() {
             return (
               <ListItem key={item.text} disablePadding>
                 <ListItemButton
-                  onClick={() => router.push(item.path)}
+                  onClick={() => { router.push(item.path); onClose?.(); }}
                   sx={{
                     borderRadius: '8px',
                     py: 1.1,
@@ -211,13 +205,7 @@ export default function Sidebar() {
       {/* ── Divider + User ───────────────────────────────── */}
       <Box sx={{ px: 2, pb: 2, pt: 0.5 }}>
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)', mb: 1.5 }} />
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
             <Avatar
               sx={{
@@ -255,6 +243,50 @@ export default function Sidebar() {
           </Tooltip>
         </Box>
       </Box>
-    </Box>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop lg+: sidebar flotante permanente */}
+      <Box
+        sx={{
+          display: { xs: 'none', lg: 'flex' },
+          width: 250,
+          height: 'calc(100vh - 32px)',
+          flexShrink: 0,
+          background: SIDEBAR_BG,
+          flexDirection: 'column',
+          boxShadow: '0 4px 20px 0 rgba(0,0,0,0.14), 0 7px 10px -5px rgba(0,0,0,0.4)',
+          borderRadius: '16px',
+          m: 2,
+          overflowX: 'hidden',
+          transition: 'all 0.3s ease',
+        }}
+      >
+        {content}
+      </Box>
+
+      {/* Mobile/tablet xs–md: Drawer temporal con hamburger */}
+      <Drawer
+        variant="temporary"
+        open={open}
+        onClose={onClose}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { lg: 'none' },
+          '& .MuiDrawer-paper': {
+            width: 250,
+            background: SIDEBAR_BG,
+            display: 'flex',
+            flexDirection: 'column',
+            overflowX: 'hidden',
+            border: 'none',
+          },
+        }}
+      >
+        {content}
+      </Drawer>
+    </>
   );
 }

@@ -247,21 +247,21 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
         onClose={onClose}
         sx={{
           '& .MuiDrawer-paper': {
-            width: 520,
+            width: { xs: '100vw', sm: '100vw', md: 520 },
             height: '100vh',
             border: 'none',
             borderLeft: '1px solid #e2e8f0',
             display: 'flex',
             flexDirection: 'column',
             boxShadow: '-8px 0 30px rgba(0, 0, 0, 0.08)',
-            borderTopLeftRadius: '24px',
-            borderBottomLeftRadius: '24px',
+            borderTopLeftRadius: { xs: 0, md: '24px' },
+            borderBottomLeftRadius: { xs: 0, md: '24px' },
             overflow: 'hidden',
           },
         }}
       >
         {/* Header */}
-        <Box sx={{ px: 3, py: 2, borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#fafafa' }}>
+        <Box sx={{ px: { xs: 2, md: 3 }, py: 2, borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#fafafa', flexWrap: 'wrap', gap: 1 }}>
           <Box>
             <Typography variant="caption" color="text.secondary">Reserva</Typography>
             <Typography variant="h6" sx={{ fontWeight: 800, fontFamily: 'Outfit', lineHeight: 1 }}>
@@ -309,7 +309,7 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
         </Box>
 
         {/* Contenido scrollable */}
-        <Box sx={{ flexGrow: 1, overflowY: 'auto', px: 3, py: 2.5, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <Box sx={{ flexGrow: 1, overflowY: 'auto', px: { xs: 2, md: 3 }, py: 2.5, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
           {accionError && <Alert severity="error" onClose={() => setAccionError('')}>{accionError}</Alert>}
 
           {/* Cliente */}

@@ -5,7 +5,7 @@ import {
   Box, Typography, Card, CardContent, Grid, Chip, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  MenuItem, Tooltip, Stack, Alert, CircularProgress, Tabs, Tab,
+  MenuItem, Tooltip, Stack, Alert, CircularProgress, Tabs, Tab, Fab,
 } from '@mui/material';
 import {
   AddOutlined, EditOutlined, DeleteOutlined,
@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import { getGastosMes, getPagosMes, crearGasto, actualizarGasto, eliminarGasto } from './actions';
 import type { CategoriaGasto } from '@/types';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 type GastoRow = {
   id: string;
@@ -72,6 +73,8 @@ export default function CajaClient({ categorias, gastosIniciales, pagosIniciales
   const [form, setForm] = React.useState({ categoria: '', monto: '', descripcion: '', fecha: '', vehiculo_id: '' });
   const [formLoading, setFormLoading] = React.useState(false);
   const [formError, setFormError] = React.useState('');
+
+  const isMobile = useIsMobile();
 
   const catMap = React.useMemo(
     () => Object.fromEntries(categorias.map(c => [c.nombre, c.color])),
@@ -160,15 +163,17 @@ export default function CajaClient({ categorias, gastosIniciales, pagosIniciales
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, gap: 1, flexWrap: 'wrap' }}>
         <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>Caja</Typography>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <IconButton size="small" onClick={() => navMes(-1)} disabled={loading}>
             <ChevronLeftOutlined />
           </IconButton>
-          <Typography sx={{ fontWeight: 600, minWidth: 180, textAlign: 'center' }}>{mesLabel}</Typography>
+          <Typography sx={{ fontWeight: 600, minWidth: { xs: 120, sm: 180 }, textAlign: 'center', fontSize: { xs: '0.85rem', sm: '1rem' } }}>
+            {mesLabel}
+          </Typography>
           <IconButton size="small" onClick={() => navMes(1)} disabled={loading}>
             <ChevronRightOutlined />
           </IconButton>
@@ -177,7 +182,7 @@ export default function CajaClient({ categorias, gastosIniciales, pagosIniciales
           variant="contained"
           startIcon={<AddOutlined />}
           onClick={openNuevo}
-          sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}
+          sx={{ display: { xs: 'none', md: 'inline-flex' }, bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}
         >
           Nuevo Egreso
         </Button>
@@ -233,156 +238,235 @@ export default function CajaClient({ categorias, gastosIniciales, pagosIniciales
 
       {/* Tables */}
       <Paper variant="outlined" sx={{ borderRadius: 2 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: '1px solid #f1f5f9', px: 2 }}>
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ borderBottom: '1px solid #f1f5f9', px: 2 }}
+        >
           <Tab label={`Egresos (${gastos.length})`} />
           <Tab label={`Ingresos (${pagos.length})`} />
         </Tabs>
 
         {/* TAB 0: Egresos */}
         {tab === 0 && (
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                  <TableCell sx={{ fontWeight: 700 }}>Fecha</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Categoría</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Vehículo</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Descripción</TableCell>
-                  <TableCell sx={{ fontWeight: 700, textAlign: 'right' }}>Monto</TableCell>
-                  <TableCell sx={{ width: 80 }} />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                      <CircularProgress size={24} />
-                    </TableCell>
-                  </TableRow>
-                ) : gastos.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                      Sin egresos registrados este mes
-                    </TableCell>
-                  </TableRow>
-                ) : gastos.map(g => (
-                  <TableRow key={g.id} hover>
-                    <TableCell>
-                      <Typography variant="body2">{formatFecha(g.fecha)}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={g.categoria}
-                        size="small"
-                        sx={{
-                          bgcolor: `${catMap[g.categoria] ?? '#64748b'}22`,
-                          color: catMap[g.categoria] ?? '#64748b',
-                          fontWeight: 600,
-                          fontSize: '0.75rem',
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
-                        {g.vehiculos?.patente ?? '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 220 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {g.descripcion ?? '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ textAlign: 'right' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: '#ef4444' }}>
-                        −{formatARS(g.monto)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
-                        <Tooltip title="Editar">
-                          <IconButton size="small" onClick={() => openEditar(g)}>
-                            <EditOutlined fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Eliminar">
-                          <IconButton size="small" color="error" onClick={() => handleEliminar(g.id)}>
-                            <DeleteOutlined fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <>
+            {/* Desktop */}
+            <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                      <TableCell sx={{ fontWeight: 700 }}>Fecha</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Categoría</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Vehículo</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Descripción</TableCell>
+                      <TableCell sx={{ fontWeight: 700, textAlign: 'right' }}>Monto</TableCell>
+                      <TableCell sx={{ width: 80 }} />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                          <CircularProgress size={24} />
+                        </TableCell>
+                      </TableRow>
+                    ) : gastos.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                          Sin egresos registrados este mes
+                        </TableCell>
+                      </TableRow>
+                    ) : gastos.map(g => (
+                      <TableRow key={g.id} hover>
+                        <TableCell>
+                          <Typography variant="body2">{formatFecha(g.fecha)}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={g.categoria}
+                            size="small"
+                            sx={{
+                              bgcolor: `${catMap[g.categoria] ?? '#64748b'}22`,
+                              color: catMap[g.categoria] ?? '#64748b',
+                              fontWeight: 600,
+                              fontSize: '0.75rem',
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {g.vehiculos?.patente ?? '—'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ maxWidth: 220 }}>
+                          <Typography variant="body2" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {g.descripcion ?? '—'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ textAlign: 'right' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: '#ef4444' }}>
+                            −{formatARS(g.monto)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
+                            <Tooltip title="Editar">
+                              <IconButton size="small" onClick={() => openEditar(g)}>
+                                <EditOutlined fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Eliminar">
+                              <IconButton size="small" color="error" onClick={() => handleEliminar(g.id)}>
+                                <DeleteOutlined fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+
+            {/* Mobile */}
+            <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+              {loading ? (
+                <Box sx={{ py: 4, textAlign: 'center' }}><CircularProgress size={24} /></Box>
+              ) : gastos.length === 0 ? (
+                <Box sx={{ py: 4, textAlign: 'center' }}>
+                  <Typography variant="body2" color="text.secondary">Sin egresos registrados este mes</Typography>
+                </Box>
+              ) : gastos.map(g => (
+                <Box key={g.id} sx={{ p: 1.5, borderBottom: '1px solid #f1f5f9' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">{formatFecha(g.fecha)}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#ef4444' }}>−{formatARS(g.monto)}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+                    <Chip
+                      label={g.categoria}
+                      size="small"
+                      sx={{ bgcolor: `${catMap[g.categoria] ?? '#64748b'}22`, color: catMap[g.categoria] ?? '#64748b', fontWeight: 600, fontSize: '0.75rem' }}
+                    />
+                    {g.vehiculos && (
+                      <Typography variant="caption" color="text.secondary">{g.vehiculos.patente}</Typography>
+                    )}
+                  </Box>
+                  {g.descripcion && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                      {g.descripcion}
+                    </Typography>
+                  )}
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                    <IconButton size="small" onClick={() => openEditar(g)}><EditOutlined fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleEliminar(g.id)}><DeleteOutlined fontSize="small" /></IconButton>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </>
         )}
 
         {/* TAB 1: Ingresos */}
         {tab === 1 && (
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                  <TableCell sx={{ fontWeight: 700 }}>Fecha</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Reserva</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Método de pago</TableCell>
-                  <TableCell sx={{ fontWeight: 700, textAlign: 'right' }}>Monto</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                      <CircularProgress size={24} />
-                    </TableCell>
-                  </TableRow>
-                ) : pagos.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                      Sin ingresos registrados este mes
-                    </TableCell>
-                  </TableRow>
-                ) : pagos.map(p => (
-                  <TableRow key={p.id} hover>
-                    <TableCell>
-                      <Typography variant="body2">{formatFechaTs(p.created_at)}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={p.reservas?.numero ?? '—'}
-                        size="small"
-                        variant="outlined"
-                        sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={METODO_LABEL[p.metodo] ?? p.metodo}
-                        size="small"
-                        sx={{
-                          bgcolor: `${METODO_COLOR[p.metodo] ?? '#64748b'}22`,
-                          color: METODO_COLOR[p.metodo] ?? '#64748b',
-                          fontWeight: 600,
-                          fontSize: '0.75rem',
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ textAlign: 'right' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: '#16a34a' }}>
-                        +{formatARS(p.monto)}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <>
+            {/* Desktop */}
+            <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                      <TableCell sx={{ fontWeight: 700 }}>Fecha</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Reserva</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Método de pago</TableCell>
+                      <TableCell sx={{ fontWeight: 700, textAlign: 'right' }}>Monto</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                          <CircularProgress size={24} />
+                        </TableCell>
+                      </TableRow>
+                    ) : pagos.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                          Sin ingresos registrados este mes
+                        </TableCell>
+                      </TableRow>
+                    ) : pagos.map(p => (
+                      <TableRow key={p.id} hover>
+                        <TableCell>
+                          <Typography variant="body2">{formatFechaTs(p.created_at)}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={p.reservas?.numero ?? '—'}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={METODO_LABEL[p.metodo] ?? p.metodo}
+                            size="small"
+                            sx={{
+                              bgcolor: `${METODO_COLOR[p.metodo] ?? '#64748b'}22`,
+                              color: METODO_COLOR[p.metodo] ?? '#64748b',
+                              fontWeight: 600,
+                              fontSize: '0.75rem',
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ textAlign: 'right' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: '#16a34a' }}>
+                            +{formatARS(p.monto)}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+
+            {/* Mobile */}
+            <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+              {loading ? (
+                <Box sx={{ py: 4, textAlign: 'center' }}><CircularProgress size={24} /></Box>
+              ) : pagos.length === 0 ? (
+                <Box sx={{ py: 4, textAlign: 'center' }}>
+                  <Typography variant="body2" color="text.secondary">Sin ingresos registrados este mes</Typography>
+                </Box>
+              ) : pagos.map(p => (
+                <Box key={p.id} sx={{ p: 1.5, borderBottom: '1px solid #f1f5f9' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">{formatFechaTs(p.created_at)}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#16a34a' }}>+{formatARS(p.monto)}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Chip label={p.reservas?.numero ?? '—'} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} />
+                    <Chip
+                      label={METODO_LABEL[p.metodo] ?? p.metodo}
+                      size="small"
+                      sx={{ bgcolor: `${METODO_COLOR[p.metodo] ?? '#64748b'}22`, color: METODO_COLOR[p.metodo] ?? '#64748b', fontWeight: 600, fontSize: '0.75rem' }}
+                    />
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </>
         )}
       </Paper>
 
       {/* Dialog: Nuevo/Editar Egreso */}
-      <Dialog open={dialog.open} onClose={() => setDialog({ open: false })} maxWidth="sm" fullWidth>
+      <Dialog open={dialog.open} onClose={() => setDialog({ open: false })} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>
           {dialog.editando ? 'Editar Egreso' : 'Nuevo Egreso'}
         </DialogTitle>
@@ -455,6 +539,15 @@ export default function CajaClient({ categorias, gastosIniciales, pagosIniciales
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* FAB mobile */}
+      <Fab
+        color="primary"
+        onClick={openNuevo}
+        sx={{ position: 'fixed', bottom: 20, right: 20, display: { xs: 'flex', md: 'none' }, bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}
+      >
+        <AddOutlined />
+      </Fab>
     </Box>
   );
 }

@@ -4,7 +4,7 @@ import * as React from 'react';
 import {
   Box, Button, Card, Typography, Table, TableHead, TableRow, TableCell,
   TableBody, Chip, IconButton, Tooltip, TextField, Dialog, DialogTitle,
-  DialogContent, DialogActions, Grid, Alert, FormControlLabel, Checkbox,
+  DialogContent, DialogActions, Grid, Alert, FormControlLabel, Checkbox, Fab,
 } from '@mui/material';
 import {
   AddOutlined, EditOutlined, DeleteOutlined, StoreOutlined,
@@ -16,6 +16,7 @@ import type { Sucursal } from '@/types';
 import {
   crearSucursal, actualizarSucursal, eliminarSucursal, type SucursalFormData,
 } from './actions';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 const schema = z.object({
   nombre: z.string().min(2, 'Requerido'),
@@ -36,6 +37,8 @@ export default function SucursalesClient({ sucursales: initialSucursales }: Prop
   const [confirmDelete, setConfirmDelete] = React.useState<Sucursal | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
+
+  const isMobile = useIsMobile();
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<SucursalFormData>({
     resolver: zodResolver(schema) as any,
@@ -101,14 +104,20 @@ export default function SucursalesClient({ sucursales: initialSucursales }: Prop
         <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>
           {sucursales.length} sucursal{sucursales.length !== 1 ? 'es' : ''}
         </Typography>
-        <Button variant="contained" startIcon={<AddOutlined />} onClick={abrirCrear} sx={{ fontWeight: 600 }}>
+        <Button
+          variant="contained"
+          startIcon={<AddOutlined />}
+          onClick={abrirCrear}
+          sx={{ fontWeight: 600, display: { xs: 'none', md: 'inline-flex' } }}
+        >
           Nueva sucursal
         </Button>
       </Box>
 
       {error && !dialogOpen && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Card>
+      {/* Desktop tabla */}
+      <Card sx={{ display: { xs: 'none', md: 'block' } }}>
         <Table>
           <TableHead>
             <TableRow sx={{ '& th': { fontWeight: 700, fontSize: '0.8rem', color: '#64748b', backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' } }}>
@@ -187,8 +196,53 @@ export default function SucursalesClient({ sucursales: initialSucursales }: Prop
         </Box>
       </Card>
 
+      {/* Mobile cards */}
+      <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 1 }}>
+        {sucursales.length === 0 ? (
+          <Box sx={{ py: 6, textAlign: 'center' }}>
+            <StoreOutlined sx={{ fontSize: 48, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
+            <Typography color="text.secondary">No hay sucursales cargadas</Typography>
+          </Box>
+        ) : sucursales.map(s => (
+          <Box key={s.id} sx={{ p: 1.5, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <StoreOutlined sx={{ color: '#4f46e5', fontSize: 18 }} />
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>{s.nombre}</Typography>
+              </Box>
+              <Chip
+                label={s.activa ? 'Activa' : 'Inactiva'}
+                size="small"
+                sx={{ bgcolor: s.activa ? '#dcfce7' : '#f1f5f9', color: s.activa ? '#16a34a' : '#64748b', fontWeight: 600, fontSize: '0.72rem' }}
+              />
+            </Box>
+            {s.direccion && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{s.direccion}</Typography>
+            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 0.5 }}>
+              <Box sx={{ display: 'flex', gap: 1.5 }}>
+                {s.telefono && (
+                  <Typography component="a" href={`tel:${s.telefono}`} variant="caption" sx={{ color: '#4f46e5', textDecoration: 'none' }}>
+                    {s.telefono}
+                  </Typography>
+                )}
+                {s.email && (
+                  <Typography component="a" href={`mailto:${s.email}`} variant="caption" sx={{ color: '#4f46e5', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 150 }}>
+                    {s.email}
+                  </Typography>
+                )}
+              </Box>
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <IconButton size="small" onClick={() => abrirEditar(s)}><EditOutlined fontSize="small" /></IconButton>
+                <IconButton size="small" color="error" onClick={() => setConfirmDelete(s)}><DeleteOutlined fontSize="small" /></IconButton>
+              </Box>
+            </Box>
+          </Box>
+        ))}
+      </Box>
+
       {/* Dialog Crear/Editar */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>
           {editando ? 'Editar sucursal' : 'Nueva sucursal'}
         </DialogTitle>
@@ -249,6 +303,15 @@ export default function SucursalesClient({ sucursales: initialSucursales }: Prop
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* FAB mobile */}
+      <Fab
+        color="primary"
+        onClick={abrirCrear}
+        sx={{ position: 'fixed', bottom: 20, right: 20, display: { xs: 'flex', md: 'none' }, bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}
+      >
+        <AddOutlined />
+      </Fab>
     </Box>
   );
 }
