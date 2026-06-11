@@ -165,7 +165,7 @@ export default function ReservaDrawer({ reserva: initialReserva, onClose, onUpda
   const handleDescargarContrato = async () => {
     const { pdf } = await import('@react-pdf/renderer');
     const { ContratoPDF } = await import('./ContratoPDF');
-    const blob = await pdf(React.createElement(ContratoPDF, { reserva }) as any).toBlob();
+    const blob = await pdf(React.createElement(ContratoPDF, { reserva, siluetaSrc: `${window.location.origin}/siluetas/Sedan.png` }) as any).toBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

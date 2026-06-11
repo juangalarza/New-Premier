@@ -20,7 +20,7 @@ import ReservaDrawer from '@/components/admin/ReservaDrawer';
 import type { Cobertura, Adicional } from '@/types';
 import {
   type ReservaConRelaciones, type NuevaReservaData,
-  crearReserva, getVehiculosDisponibles, calcularCotizacion, buscarClientesPorDNI,
+  crearReserva, getVehiculosDisponibles, calcularCotizacion, buscarClientesPorDNI, buscarClientesPorNombre,
 } from './actions';
 import { crearCliente } from '@/app/dashboard/clientes/actions';
 
@@ -138,12 +138,12 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
     );
   }, [fechaEntrega, fechaDevolucion]);
 
-  // Búsqueda de cliente por DNI con debounce 300ms
+  // Búsqueda por nombre/apellido (o DNI si es numérico) con debounce 300ms
   React.useEffect(() => {
-    if (dniInput.length < 3) { setClientesBuscados([]); return; }
+    if (dniInput.trim().length < 2) { setClientesBuscados([]); return; }
     const timer = setTimeout(async () => {
       setBuscando(true);
-      const results = await buscarClientesPorDNI(dniInput);
+      const results = await buscarClientesPorNombre(dniInput);
       setClientesBuscados(results);
       setBuscando(false);
     }, 300);
@@ -490,7 +490,7 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
                   </Box>
                 ) : (
                   <TextField
-                    label="DNI / Pasaporte del cliente *"
+                    label="Buscar por nombre o apellido..."
                     value={dniInput}
                     onChange={e => setDniInput(e.target.value)}
                     onFocus={() => setDniDropdownOpen(true)}
@@ -507,7 +507,7 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
                     }}
                   />
                 )}
-                {dniDropdownOpen && dniInput.length >= 3 && !clienteSeleccionado && (
+                {dniDropdownOpen && dniInput.trim().length >= 2 && !clienteSeleccionado && (
                   <Paper elevation={4} sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1300, mt: 0.5, maxHeight: 260, overflow: 'auto', border: '1px solid #e2e8f0', borderRadius: 2 }}>
                     {buscando ? (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5 }}>
@@ -534,7 +534,7 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
                       <ListItemButton
                         onMouseDown={e => e.preventDefault()}
                         onClick={() => {
-                          miniReset({ nombre: '', apellido: '', dni_pasaporte: dniInput, email: '', telefono: '', licencia_conducir: '', ciudad: '', pais: 'Argentina' });
+                          miniReset({ nombre: '', apellido: '', dni_pasaporte: '', email: '', telefono: '', licencia_conducir: '', ciudad: '', pais: 'Argentina' });
                           setMiniError('');
                           setMiniDialogOpen(true);
                           setDniDropdownOpen(false);
@@ -543,7 +543,7 @@ export default function ReservasClient({ reservasIniciales, clientes, coberturas
                       >
                         <AddOutlined sx={{ fontSize: 18, color: '#4f46e5', flexShrink: 0 }} />
                         <ListItemText
-                          primary={`Crear nuevo cliente con DNI "${dniInput}"`}
+                          primary="No se encontró ningún cliente — Crear nuevo"
                           slotProps={{ primary: { sx: { fontSize: '0.85rem', fontWeight: 600, color: '#4f46e5' } } }}
                         />
                       </ListItemButton>

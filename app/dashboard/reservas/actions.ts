@@ -157,6 +157,26 @@ export async function buscarClientesPorDNI(
   return (data ?? []) as any;
 }
 
+export async function buscarClientesPorNombre(
+  query: string
+): Promise<{ id: string; nombre: string; apellido: string; dni_pasaporte: string; email: string }[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const supabase = createAdminClient();
+  const isNumeric = /^\d{7,8}$/.test(q);
+  const orFilter = isNumeric
+    ? `nombre.ilike.%${q}%,apellido.ilike.%${q}%,dni_pasaporte.eq.${q}`
+    : `nombre.ilike.%${q}%,apellido.ilike.%${q}%`;
+  const { data } = await supabase
+    .from('clientes')
+    .select('id, nombre, apellido, dni_pasaporte, email')
+    .eq('tenant_id', TENANT_ID)
+    .or(orFilter)
+    .order('apellido', { ascending: true })
+    .limit(10);
+  return (data ?? []) as any;
+}
+
 export async function getCategoriasConTarifas() {
   const supabase = createAdminClient();
   const { data } = await supabase

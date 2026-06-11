@@ -47,6 +47,46 @@ type GanttRow =
   | { kind: 'vehiculo'; vehiculo: Vehiculo }
   | { kind: 'divider'; nombre: string };
 
+function GanttLabel({ label, color }: { label: string; color: string }) {
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+  const txtRef = React.useRef<HTMLSpanElement>(null);
+  const [overflow, setOverflow] = React.useState(0);
+  const [hovered, setHovered] = React.useState(false);
+
+  React.useLayoutEffect(() => {
+    const w = wrapRef.current;
+    const t = txtRef.current;
+    if (w && t) setOverflow(Math.max(0, t.scrollWidth - w.clientWidth));
+  }, [label]);
+
+  return (
+    <Box
+      ref={wrapRef}
+      sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}
+      onMouseEnter={() => overflow > 0 && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <Box
+        ref={txtRef}
+        component="span"
+        sx={{
+          display: 'inline-block',
+          whiteSpace: 'nowrap',
+          fontSize: '0.72rem',
+          fontWeight: 700,
+          color,
+          lineHeight: 1,
+          letterSpacing: '0.01em',
+          transition: `transform ${Math.max(0.8, overflow / 60)}s ease-in-out`,
+          transform: hovered ? `translateX(-${overflow}px)` : 'translateX(0)',
+        }}
+      >
+        {label}
+      </Box>
+    </Box>
+  );
+}
+
 interface Props {
   vehiculosIniciales: Vehiculo[];
   reservasIniciales: ReservaConRelaciones[];
@@ -442,9 +482,10 @@ export default function GanttCalendar({
                               }}
                             >
                               {bloque.widthPct > 2 && (
-                                <Typography noWrap sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'inherit', lineHeight: 1, letterSpacing: '0.01em' }}>
-                                  {r.cliente.apellido}
-                                </Typography>
+                                <GanttLabel
+                                  label={`${r.cliente.nombre} ${r.cliente.apellido}`}
+                                  color={color.text}
+                                />
                               )}
                             </Box>
                           </Tooltip>

@@ -1,9 +1,10 @@
-import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, View, Text, StyleSheet, Image } from '@react-pdf/renderer';
 import type { ReservaConRelaciones } from '@/app/dashboard/reservas/actions';
 
 export interface ContratoPDFProps {
   reserva: ReservaConRelaciones;
   tenant?: { nombre: string };
+  siluetaSrc?: string;
 }
 
 const s = StyleSheet.create({
@@ -48,6 +49,9 @@ const s = StyleSheet.create({
   legalTitle: { fontFamily: 'Helvetica-Bold', fontSize: 11, marginBottom: 10, textAlign: 'center' },
   legalSection: { fontFamily: 'Helvetica-Bold', fontSize: 7.5, marginTop: 7, marginBottom: 2 },
   legalBody: { fontSize: 7, lineHeight: 1.6, color: '#222222' },
+  // Silueta del vehículo
+  siluetaWrap: { marginTop: 6, marginBottom: 3 },
+  siluetaImg: { width: '100%', height: 140 },
 });
 
 function d2(n: number) { return String(n).padStart(2, '0'); }
@@ -86,7 +90,7 @@ const CONCEPTOS_TARIFA = [
   'OTROS',
 ];
 
-export function ContratoPDF({ reserva, tenant }: ContratoPDFProps) {
+export function ContratoPDF({ reserva, tenant, siluetaSrc }: ContratoPDFProps) {
   const dias = Math.ceil(
     (new Date(reserva.fecha_devolucion).getTime() - new Date(reserva.fecha_entrega).getTime()) / 86400000
   );
@@ -215,6 +219,11 @@ export function ContratoPDF({ reserva, tenant }: ContratoPDFProps) {
                 <View style={s.fRow}>
                   <Text style={{ fontSize: 6 }}>FRANQUICIA ROBO/VUELCO: $8.000.000</Text>
                 </View>
+                {siluetaSrc ? (
+                  <View style={s.siluetaWrap}>
+                    <Image style={s.siluetaImg} src={siluetaSrc} />
+                  </View>
+                ) : null}
               </View>
             ) : (
               <View style={{ padding: 4 }}>
