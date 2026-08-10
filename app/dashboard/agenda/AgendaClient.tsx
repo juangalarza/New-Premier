@@ -37,11 +37,12 @@ const ESTADO_COLOR: Record<string, 'success' | 'warning' | 'info' | 'default'> =
 
 interface Props {
   fecha: string;
+  sucursalId: string | null;
   entregasIniciales: EntregaAgenda[];
   devolucionesIniciales: DevolucionAgenda[];
 }
 
-export default function AgendaClient({ fecha, entregasIniciales, devolucionesIniciales }: Props) {
+export default function AgendaClient({ fecha, sucursalId, entregasIniciales, devolucionesIniciales }: Props) {
   const [selectedDate, setSelectedDate] = React.useState(fecha);
   const [entregas, setEntregas] = React.useState(entregasIniciales);
   const [devs, setDevs] = React.useState(devolucionesIniciales);
@@ -51,7 +52,7 @@ export default function AgendaClient({ fecha, entregasIniciales, devolucionesIni
   async function buscar() {
     setLoading(true);
     try {
-      const data = await getAgendaDia(selectedDate);
+      const data = await getAgendaDia(selectedDate, sucursalId);
       setEntregas(data.entregas);
       setDevs(data.devoluciones);
     } finally {

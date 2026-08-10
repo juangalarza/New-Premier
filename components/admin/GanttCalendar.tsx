@@ -94,6 +94,7 @@ interface Props {
   mesInicial: number;
   sucursalesIniciales: Sucursal[];
   categoriasIniciales: Categoria[];
+  sucursalFija?: string | null;
 }
 
 export default function GanttCalendar({
@@ -103,6 +104,7 @@ export default function GanttCalendar({
   mesInicial,
   sucursalesIniciales,
   categoriasIniciales,
+  sucursalFija,
 }: Props) {
   const [año, setAño] = React.useState(añoInicial);
   const [mes, setMes] = React.useState(mesInicial);
@@ -111,7 +113,7 @@ export default function GanttCalendar({
   const [reservas, setReservas] = React.useState(reservasIniciales);
   const [loading, setLoading] = React.useState(false);
   const [selectedReserva, setSelectedReserva] = React.useState<ReservaConRelaciones | null>(null);
-  const [sucursalId, setSucursalId] = React.useState<string | null>(null);
+  const [sucursalId, setSucursalId] = React.useState<string | null>(sucursalFija ?? null);
   const [categoriaId, setCategoriaId] = React.useState<string | null>(null);
 
   const cargarDatos = React.useCallback(async (
@@ -144,6 +146,7 @@ export default function GanttCalendar({
   };
 
   const handleSucursal = (newId: string | null) => {
+    if (sucursalFija) return; // no puede cambiar de sucursal
     setSucursalId(newId);
     cargarDatos(año, mes, numMeses, newId, categoriaId);
   };
@@ -281,21 +284,23 @@ export default function GanttCalendar({
             Hoy
           </Button>
 
-          {/* Filtro sucursal */}
-          <FormControl size="small" sx={{ minWidth: 155, bgcolor: '#ffffff', borderRadius: 1 }}>
-            <InputLabel sx={{ fontSize: '0.8rem' }}>Sucursal</InputLabel>
-            <Select
-              value={sucursalId ?? ''}
-              label="Sucursal"
-              onChange={(e) => handleSucursal((e.target.value as string) || null)}
-              sx={{ fontSize: '0.8rem' }}
-            >
-              <MenuItem value=""><em>Todas</em></MenuItem>
-              {sucursalesIniciales.map(s => (
-                <MenuItem key={s.id} value={s.id} sx={{ fontSize: '0.85rem' }}>{s.nombre}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {/* Filtro sucursal — oculto si el usuario tiene sucursal fija */}
+          {!sucursalFija && (
+            <FormControl size="small" sx={{ minWidth: 155, bgcolor: '#ffffff', borderRadius: 1 }}>
+              <InputLabel sx={{ fontSize: '0.8rem' }}>Sucursal</InputLabel>
+              <Select
+                value={sucursalId ?? ''}
+                label="Sucursal"
+                onChange={(e) => handleSucursal((e.target.value as string) || null)}
+                sx={{ fontSize: '0.8rem' }}
+              >
+                <MenuItem value=""><em>Todas</em></MenuItem>
+                {sucursalesIniciales.map(s => (
+                  <MenuItem key={s.id} value={s.id} sx={{ fontSize: '0.85rem' }}>{s.nombre}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           {/* Filtro categoría */}
           <FormControl size="small" sx={{ minWidth: 155, bgcolor: '#ffffff', borderRadius: 1 }}>

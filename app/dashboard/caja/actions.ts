@@ -16,9 +16,20 @@ export async function getCategoriasGasto(): Promise<CategoriaGasto[]> {
   return (data ?? []) as unknown as CategoriaGasto[];
 }
 
-export async function getGastosMes(inicioFecha: string, finFecha: string) {
+export async function getGastosMes(inicioFecha: string, finFecha: string, sucursal_id?: string | null) {
   const supabase = createAdminClient();
-  const { data } = await supabase
+
+  let vehiculoIds: string[] | null = null;
+  if (sucursal_id) {
+    const { data: vData } = await supabase
+      .from('vehiculos')
+      .select('id')
+      .eq('tenant_id', TENANT_ID)
+      .eq('sucursal_id', sucursal_id);
+    vehiculoIds = ((vData ?? []) as unknown as { id: string }[]).map(v => v.id);
+  }
+
+  let q = supabase
     .from('gastos')
     .select('id, categoria, monto, descripcion, fecha, vehiculo_id, vehiculos:vehiculo_id(patente)')
     .eq('tenant_id', TENANT_ID)
@@ -26,18 +37,50 @@ export async function getGastosMes(inicioFecha: string, finFecha: string) {
     .lte('fecha', finFecha)
     .order('fecha', { ascending: false })
     .order('created_at', { ascending: false });
+
+  if (vehiculoIds !== null) {
+    if (vehiculoIds.length === 0) return [];
+    q = q.in('vehiculo_id', vehiculoIds) as typeof q;
+  }
+
+  const { data } = await q;
   return data ?? [];
 }
 
-export async function getPagosMes(inicioTs: string, finTs: string) {
+export async function getPagosMes(inicioTs: string, finTs: string, sucursal_id?: string | null) {
   const supabase = createAdminClient();
-  const { data } = await supabase
+
+  let reservaIds: string[] | null = null;
+  if (sucursal_id) {
+    const { data: vData } = await supabase
+      .from('vehiculos')
+      .select('id')
+      .eq('tenant_id', TENANT_ID)
+      .eq('sucursal_id', sucursal_id);
+    const vIds = ((vData ?? []) as unknown as { id: string }[]).map(v => v.id);
+    if (vIds.length === 0) return [];
+    const { data: rData } = await supabase
+      .from('reservas')
+      .select('id')
+      .eq('tenant_id', TENANT_ID)
+      .in('vehiculo_id', vIds);
+    reservaIds = ((rData ?? []) as unknown as { id: string }[]).map(r => r.id);
+    if (reservaIds.length === 0) return [];
+  }
+
+  let q = supabase
     .from('pagos')
     .select('id, monto, metodo, created_at, reservas:reserva_id(numero)')
     .eq('tenant_id', TENANT_ID)
     .gte('created_at', inicioTs)
     .lte('created_at', finTs)
     .order('created_at', { ascending: false });
+
+  if (reservaIds !== null) {
+    q = q.in('reserva_id', reservaIds) as typeof q;
+  }
+
+  const { data } = await q;
   return data ?? [];
 }
 

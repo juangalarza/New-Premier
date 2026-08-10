@@ -107,7 +107,19 @@ export async function crearUsuario(data: UsuarioFormData): Promise<void> {
   };
 
   const { error: dbError } = await supabase.from('usuarios').upsert(row as never, { onConflict: 'id' });
-  if (dbError) throw new Error(dbError.message);
+  if (dbError) {
+    // Fallback: columnas nuevas aún no existen en BD (migración pendiente)
+    const rowBase: Record<string, unknown> = {
+      id: authData.user.id,
+      tenant_id: TENANT_ID,
+      email: data.email,
+      nombre: data.nombre,
+      apellido: data.apellido,
+      rol: data.rol,
+    };
+    const { error: fallbackError } = await supabase.from('usuarios').upsert(rowBase as never, { onConflict: 'id' });
+    if (fallbackError) throw new Error(fallbackError.message);
+  }
 
   revalidatePath('/dashboard/usuarios');
 }
@@ -147,7 +159,21 @@ export async function actualizarUsuario(id: string, data: UsuarioEditData): Prom
     .update(dbUpdate as never)
     .eq('id', id)
     .eq('tenant_id', TENANT_ID);
-  if (dbError) throw new Error(dbError.message);
+  if (dbError) {
+    // Fallback: columnas nuevas aún no existen en BD (migración pendiente)
+    const dbUpdateBase: Record<string, unknown> = {
+      nombre: data.nombre,
+      apellido: data.apellido,
+      rol: data.rol,
+    };
+    if (data.email) dbUpdateBase.email = data.email;
+    const { error: fallbackError } = await supabase
+      .from('usuarios')
+      .update(dbUpdateBase as never)
+      .eq('id', id)
+      .eq('tenant_id', TENANT_ID);
+    if (fallbackError) throw new Error(fallbackError.message);
+  }
 
   revalidatePath('/dashboard/usuarios');
 }

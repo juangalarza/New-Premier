@@ -42,6 +42,7 @@ interface Props {
   pagosIniciales: PagoRow[];
   vehiculos: VehiculoOpt[];
   mesInicial: string;
+  sucursalId: string | null;
 }
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -62,7 +63,7 @@ function formatFechaTs(s: string) {
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 }
 
-export default function CajaClient({ categorias, gastosIniciales, pagosIniciales, vehiculos, mesInicial }: Props) {
+export default function CajaClient({ categorias, gastosIniciales, pagosIniciales, vehiculos, mesInicial, sucursalId }: Props) {
   const [anoMes, setAnoMes] = React.useState(mesInicial);
   const [gastos, setGastos] = React.useState<GastoRow[]>(gastosIniciales);
   const [pagos, setPagos] = React.useState<PagoRow[]>(pagosIniciales);
@@ -95,7 +96,7 @@ export default function CajaClient({ categorias, gastosIniciales, pagosIniciales
     const fin = new Date(a, m, 0).toISOString().split('T')[0];
     const inicioTs = new Date(a, m - 1, 1).toISOString();
     const finTs = new Date(a, m, 0, 23, 59, 59).toISOString();
-    const [g, p] = await Promise.all([getGastosMes(inicio, fin), getPagosMes(inicioTs, finTs)]);
+    const [g, p] = await Promise.all([getGastosMes(inicio, fin, sucursalId), getPagosMes(inicioTs, finTs, sucursalId)]);
     setGastos(g as GastoRow[]);
     setPagos(p as PagoRow[]);
     setAnoMes(nuevaFecha);
