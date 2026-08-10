@@ -5,14 +5,17 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { TENANT_ID } from '@/lib/constants';
 import type { Vehiculo } from '@/types';
 
-export async function getVehiculos(): Promise<Vehiculo[]> {
+export async function getVehiculos(sucursal_id?: string | null): Promise<Vehiculo[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
+  let q = supabase
     .from('vehiculos')
     .select('*, categoria:categorias(id, nombre, descripcion, tenant_id, created_at), sucursal:sucursales(id, nombre)')
     .eq('tenant_id', TENANT_ID)
     .order('created_at', { ascending: false });
 
+  if (sucursal_id) q = q.eq('sucursal_id', sucursal_id);
+
+  const { data, error } = await q;
   if (error) throw new Error(error.message);
   return (data ?? []) as Vehiculo[];
 }

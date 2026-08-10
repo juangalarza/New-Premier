@@ -33,8 +33,20 @@ export type ReservaFiltros = {
   busqueda?: string;
 };
 
-export async function getReservas(filtros: ReservaFiltros = {}): Promise<ReservaConRelaciones[]> {
+export async function getReservas(filtros: ReservaFiltros = {}, sucursal_id?: string | null): Promise<ReservaConRelaciones[]> {
   const supabase = createAdminClient();
+
+  // When restricted to a sucursal, pre-fetch vehicle IDs from that branch
+  let vehiculoIds: string[] | null = null;
+  if (sucursal_id) {
+    const { data: vData } = await supabase
+      .from('vehiculos')
+      .select('id')
+      .eq('tenant_id', TENANT_ID)
+      .eq('sucursal_id', sucursal_id);
+    vehiculoIds = ((vData ?? []) as unknown as { id: string }[]).map(v => v.id);
+    if (vehiculoIds.length === 0) return [];
+  }
 
   let query = supabase
     .from('reservas')
@@ -46,6 +58,7 @@ export async function getReservas(filtros: ReservaFiltros = {}): Promise<Reserva
     .eq('tenant_id', TENANT_ID)
     .order('created_at', { ascending: false });
 
+  if (vehiculoIds !== null) query = query.in('vehiculo_id', vehiculoIds);
   if (filtros.fechaDesde) query = query.gte('fecha_entrega', filtros.fechaDesde);
   if (filtros.fechaHasta) query = query.lte('fecha_entrega', `${filtros.fechaHasta}T23:59:59`);
   if (filtros.estado && filtros.estado !== 'todos') query = query.eq('estado', filtros.estado);

@@ -85,14 +85,12 @@ function LoginContent() {
         }
       }
 
-      // 2. Local Demo Bypass for developer validation / evaluation
-      if (isPlaceholder || isDemoParam || data.email === 'admin@rentacore.com') {
+      // 2. Local Demo Bypass — solo cuando no hay Supabase configurado o se pide explícitamente
+      if (isPlaceholder || isDemoParam) {
         if (data.email === 'admin@rentacore.com' && data.password === 'admin123') {
-          // Set a temporary demo authentication cookie that expires in 1 day
           const d = new Date();
           d.setTime(d.getTime() + (24 * 60 * 60 * 1000));
           document.cookie = `rentacore_demo_active=true; path=/; expires=${d.toUTCString()};`;
-          
           router.push('/dashboard');
           router.refresh();
           return;
@@ -377,19 +375,6 @@ function LoginContent() {
               </Box>
             </form>
 
-            {/* Demo Helper Footer */}
-            <Box
-              sx={{
-                mt: 5,
-                pt: 3,
-                borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-                textAlign: 'center',
-              }}
-            >
-              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.35)' }}>
-                Modo Demo: use <strong>admin@rentacore.com</strong> y <strong>admin123</strong>
-              </Typography>
-            </Box>
           </CardContent>
         </Card>
       </Container>

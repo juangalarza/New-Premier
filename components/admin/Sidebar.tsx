@@ -16,19 +16,19 @@ import { usePathname, useRouter } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabase/client';
 
 const NAV_ITEMS = [
-  { text: 'Dashboard',     icon: <DashboardOutlined />,     path: '/dashboard' },
-  { text: 'Calendario',    icon: <CalendarMonthOutlined />,  path: '/dashboard/calendario' },
-  { text: 'Reservas',      icon: <ReceiptLongOutlined />,    path: '/dashboard/reservas' },
-  { text: 'Vehículos',     icon: <DirectionsCarOutlined />,  path: '/dashboard/vehiculos' },
-  { text: 'Mantenimiento', icon: <BuildOutlined />,          path: '/dashboard/mantenimiento' },
-  { text: 'Sucursales',    icon: <StoreOutlined />,          path: '/dashboard/sucursales' },
-  { text: 'Clientes',      icon: <PeopleAltOutlined />,      path: '/dashboard/clientes' },
-  { text: 'Tarifas',       icon: <MonetizationOnOutlined />, path: '/dashboard/tarifas' },
-  { text: 'Caja',          icon: <AccountBalanceWalletOutlined />, path: '/dashboard/caja' },
-  { text: 'Agenda Diaria', icon: <MenuBookOutlined />,       path: '/dashboard/agenda' },
-  { text: 'Reportes',      icon: <BarChartOutlined />,       path: '/dashboard/reportes' },
-  { text: 'Usuarios',      icon: <PeopleOutlined />,         path: '/dashboard/usuarios' },
-  { text: 'Configuración', icon: <SettingsOutlined />,       path: '/dashboard/configuracion' },
+  { key: 'dashboard',      text: 'Dashboard',     icon: <DashboardOutlined />,           path: '/dashboard' },
+  { key: 'calendario',     text: 'Calendario',    icon: <CalendarMonthOutlined />,        path: '/dashboard/calendario' },
+  { key: 'reservas',       text: 'Reservas',      icon: <ReceiptLongOutlined />,          path: '/dashboard/reservas' },
+  { key: 'vehiculos',      text: 'Vehículos',     icon: <DirectionsCarOutlined />,        path: '/dashboard/vehiculos' },
+  { key: 'mantenimiento',  text: 'Mantenimiento', icon: <BuildOutlined />,                path: '/dashboard/mantenimiento' },
+  { key: 'sucursales',     text: 'Sucursales',    icon: <StoreOutlined />,                path: '/dashboard/sucursales' },
+  { key: 'clientes',       text: 'Clientes',      icon: <PeopleAltOutlined />,            path: '/dashboard/clientes' },
+  { key: 'tarifas',        text: 'Tarifas',       icon: <MonetizationOnOutlined />,       path: '/dashboard/tarifas' },
+  { key: 'caja',           text: 'Caja',          icon: <AccountBalanceWalletOutlined />, path: '/dashboard/caja' },
+  { key: 'agenda',         text: 'Agenda Diaria', icon: <MenuBookOutlined />,             path: '/dashboard/agenda' },
+  { key: 'reportes',       text: 'Reportes',      icon: <BarChartOutlined />,             path: '/dashboard/reportes' },
+  { key: 'usuarios',       text: 'Usuarios',      icon: <PeopleOutlined />,               path: '/dashboard/usuarios' },
+  { key: 'configuracion',  text: 'Configuración', icon: <SettingsOutlined />,             path: '/dashboard/configuracion' },
 ];
 
 const SIDEBAR_BG = 'linear-gradient(195deg, #42424a 0%, #191919 100%)';
@@ -41,7 +41,14 @@ interface SidebarProps {
 export default function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [userInfo, setUserInfo] = React.useState<{ nombre: string; apellido: string; email: string; rol: string } | null>(null);
+  const [userInfo, setUserInfo] = React.useState<{
+    nombre: string;
+    apellido: string;
+    email: string;
+    rol: string;
+    permisos: string[] | null;
+    sucursal_nombre: string | null;
+  } | null>(null);
 
   React.useEffect(() => {
     supabaseBrowser.auth.getUser().then(async ({ data }) => {
@@ -49,14 +56,16 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
       const email = data.user.email ?? '';
       const { data: row } = await supabaseBrowser
         .from('usuarios')
-        .select('nombre, apellido, rol')
+        .select('nombre, apellido, rol, permisos, sucursal_id, sucursal:sucursales(nombre)')
         .eq('id', data.user.id)
         .single();
       setUserInfo({
-        nombre: row?.nombre ?? '',
-        apellido: row?.apellido ?? '',
+        nombre: (row as any)?.nombre ?? '',
+        apellido: (row as any)?.apellido ?? '',
         email,
-        rol: row?.rol ?? '',
+        rol: (row as any)?.rol ?? '',
+        permisos: (row as any)?.permisos ?? null,
+        sucursal_nombre: (row as any)?.sucursal?.nombre ?? null,
       });
     });
   }, []);
@@ -136,7 +145,11 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
       {/* ── Nav ──────────────────────────────────────────── */}
       <Box sx={{ flexGrow: 1, overflowY: 'auto', py: 1, px: 1 }}>
         <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.filter(item =>
+            item.key === 'dashboard' ||
+            !userInfo?.permisos ||
+            userInfo.permisos.includes(item.key)
+          ).map((item) => {
             const active = item.path === '/dashboard'
               ? pathname === '/dashboard'
               : pathname === item.path || pathname.startsWith(item.path + '/');
@@ -224,7 +237,9 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
                 {displayName}
               </Typography>
               <Typography sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textTransform: 'capitalize' }}>
-                {userInfo?.rol ?? ''}
+                {userInfo?.sucursal_nombre
+                  ? `${userInfo.rol} · ${userInfo.sucursal_nombre}`
+                  : userInfo?.rol ?? ''}
               </Typography>
             </Box>
           </Box>

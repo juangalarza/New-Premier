@@ -6,15 +6,31 @@ import {
   TableHead, TableRow, Avatar, IconButton, Button, Dialog,
   DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem,
   FormControl, InputLabel, Tooltip, Stack, Alert, CircularProgress,
-  InputAdornment,
+  InputAdornment, Chip, Checkbox, FormGroup, FormControlLabel, Divider,
 } from '@mui/material';
 import {
   PersonAddOutlined, DeleteOutlined, AdminPanelSettingsOutlined,
   PersonOutlined, EditOutlined, VisibilityOutlined, VisibilityOffOutlined,
+  StoreOutlined,
 } from '@mui/icons-material';
 import { crearUsuario, actualizarUsuario, eliminarUsuario, getUsuarios } from './actions';
 import type { UsuarioAdmin } from './actions';
 import type { RolUsuario } from '@/types';
+
+const MODULOS = [
+  { key: 'calendario',    label: 'Calendario' },
+  { key: 'reservas',      label: 'Reservas' },
+  { key: 'vehiculos',     label: 'Vehículos' },
+  { key: 'mantenimiento', label: 'Mantenimiento' },
+  { key: 'sucursales',    label: 'Sucursales' },
+  { key: 'clientes',      label: 'Clientes' },
+  { key: 'tarifas',       label: 'Tarifas' },
+  { key: 'caja',          label: 'Caja' },
+  { key: 'agenda',        label: 'Agenda Diaria' },
+  { key: 'reportes',      label: 'Reportes' },
+  { key: 'usuarios',      label: 'Usuarios' },
+  { key: 'configuracion', label: 'Configuración' },
+];
 
 function formatFecha(iso: string) {
   try { return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }); }
@@ -33,13 +49,22 @@ function formatUltimoAcceso(iso: string | null) {
   } catch { return '—'; }
 }
 
-const EMPTY_FORM = { email: '', nombre: '', apellido: '', rol: 'operador' as RolUsuario, password: '' };
+const EMPTY_FORM = {
+  email: '',
+  nombre: '',
+  apellido: '',
+  rol: 'operador' as RolUsuario,
+  password: '',
+  sucursal_id: '' as string,
+  permisos: null as string[] | null,
+};
 
 interface Props {
   usuariosIniciales: UsuarioAdmin[];
+  sucursales: { id: string; nombre: string }[];
 }
 
-export default function UsuariosClient({ usuariosIniciales }: Props) {
+export default function UsuariosClient({ usuariosIniciales, sucursales }: Props) {
   const [usuarios, setUsuarios] = React.useState(usuariosIniciales);
   const [dialog, setDialog] = React.useState<{ open: boolean; editId: string | null }>({ open: false, editId: null });
   const [form, setForm] = React.useState(EMPTY_FORM);
@@ -48,6 +73,9 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
   const [error, setError] = React.useState('');
 
   const isEdit = dialog.editId !== null;
+  const isAdmin = form.rol === 'admin';
+  // true = acceso completo (permisos null), false = selección manual
+  const accesoCompleto = form.permisos === null;
 
   function openCrear() {
     setForm(EMPTY_FORM);
@@ -56,7 +84,15 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
   }
 
   function openEditar(u: UsuarioAdmin) {
-    setForm({ email: u.email, nombre: u.nombre, apellido: u.apellido, rol: u.rol, password: '' });
+    setForm({
+      email: u.email,
+      nombre: u.nombre,
+      apellido: u.apellido,
+      rol: u.rol,
+      password: '',
+      sucursal_id: u.sucursal_id ?? '',
+      permisos: u.permisos ?? null,
+    });
     setError('');
     setDialog({ open: true, editId: u.id });
   }
@@ -65,22 +101,39 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
     setDialog({ open: false, editId: null });
   }
 
+  function toggleModulo(key: string) {
+    setForm(f => {
+      const current = f.permisos ?? [];
+      const next = current.includes(key)
+        ? current.filter(k => k !== key)
+        : [...current, key];
+      return { ...f, permisos: next };
+    });
+  }
+
+  function setAccesoCompleto(completo: boolean) {
+    setForm(f => ({ ...f, permisos: completo ? null : [] }));
+  }
+
   async function handleGuardar() {
     if (!form.email || !form.nombre || !form.apellido) return;
     if (!isEdit && !form.password) return;
     setLoading(true);
     setError('');
     try {
+      const payload = {
+        nombre: form.nombre,
+        apellido: form.apellido,
+        rol: form.rol,
+        email: form.email,
+        password: form.password || undefined,
+        sucursal_id: form.sucursal_id || null,
+        permisos: isAdmin ? null : (form.permisos ?? null),
+      };
       if (isEdit) {
-        await actualizarUsuario(dialog.editId!, {
-          nombre: form.nombre,
-          apellido: form.apellido,
-          rol: form.rol,
-          email: form.email || undefined,
-          password: form.password || undefined,
-        });
+        await actualizarUsuario(dialog.editId!, payload);
       } else {
-        await crearUsuario(form);
+        await crearUsuario({ ...payload, password: form.password });
       }
       setUsuarios(await getUsuarios());
       cerrar();
@@ -100,7 +153,7 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
   const canGuardar = !!form.email && !!form.nombre && !!form.apellido && (isEdit || !!form.password);
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>Usuarios</Typography>
@@ -125,7 +178,7 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
           <Typography variant="body2" sx={{ mt: 0.5 }}>Agregá un operador o administrador para comenzar.</Typography>
         </Paper>
       ) : (
-        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflowX: 'auto' }}>
           <TableContainer>
             <Table>
               <TableHead>
@@ -133,7 +186,8 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
                   <TableCell sx={{ fontWeight: 700 }}>Usuario</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Email</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Rol</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Registrado</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Sucursal</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Módulos</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Último acceso</TableCell>
                   <TableCell sx={{ fontWeight: 700, width: 80 }} align="center">Acc.</TableCell>
                 </TableRow>
@@ -146,7 +200,10 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
                         <Avatar sx={{ width: 36, height: 36, bgcolor: u.rol === 'admin' ? '#4f46e5' : '#f59e0b', fontSize: 13, fontWeight: 700 }}>
                           {u.nombre[0]}{u.apellido[0]}
                         </Avatar>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{u.nombre} {u.apellido}</Typography>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{u.nombre} {u.apellido}</Typography>
+                          <Typography variant="caption" color="text.secondary">{formatFecha(u.created_at)}</Typography>
+                        </Box>
                       </Box>
                     </TableCell>
                     <TableCell>
@@ -161,7 +218,23 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary">{formatFecha(u.created_at)}</Typography>
+                      {u.sucursal_nombre ? (
+                        <Chip
+                          icon={<StoreOutlined sx={{ fontSize: '14px !important' }} />}
+                          label={u.sucursal_nombre}
+                          size="small"
+                          sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontWeight: 600, fontSize: '0.72rem' }}
+                        />
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">Todas</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {u.rol === 'admin' || u.permisos === null ? (
+                        <Chip label="Completo" size="small" sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 600, fontSize: '0.72rem' }} />
+                      ) : (
+                        <Chip label={`${u.permisos.length} módulos`} size="small" sx={{ bgcolor: '#fef9c3', color: '#a16207', fontWeight: 600, fontSize: '0.72rem' }} />
+                      )}
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">{formatUltimoAcceso(u.last_sign_in)}</Typography>
@@ -249,11 +322,90 @@ export default function UsuariosClient({ usuariosIniciales }: Props) {
               <MenuItem value="operador">
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <PersonOutlined sx={{ fontSize: 18, color: '#f59e0b' }} />
-                  Operador — Sin configuración ni usuarios
+                  Operador — Permisos configurables
                 </Box>
               </MenuItem>
             </Select>
           </FormControl>
+
+          {/* Sucursal y permisos solo para operadores */}
+          {!isAdmin && (
+            <>
+              <Divider />
+
+              <FormControl fullWidth size="small">
+                <InputLabel>Sucursal asignada</InputLabel>
+                <Select
+                  value={form.sucursal_id}
+                  label="Sucursal asignada"
+                  onChange={e => setForm(f => ({ ...f, sucursal_id: e.target.value }))}
+                >
+                  <MenuItem value="">
+                    <em>Todas las sucursales (sin restricción)</em>
+                  </MenuItem>
+                  {sucursales.map(s => (
+                    <MenuItem key={s.id} value={s.id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <StoreOutlined sx={{ fontSize: 16, color: '#4f46e5' }} />
+                        {s.nombre}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>Módulos accesibles</Typography>
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={accesoCompleto}
+                      onChange={e => setAccesoCompleto(e.target.checked)}
+                      size="small"
+                      sx={{ color: '#4f46e5', '&.Mui-checked': { color: '#4f46e5' } }}
+                    />
+                  }
+                  label={<Typography variant="body2" sx={{ fontWeight: 600 }}>Acceso completo (todos los módulos)</Typography>}
+                />
+
+                {!accesoCompleto && (
+                  <Box sx={{ mt: 1, pl: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+                    <FormGroup>
+                      {MODULOS.slice(0, 6).map(m => (
+                        <FormControlLabel
+                          key={m.key}
+                          control={
+                            <Checkbox
+                              checked={form.permisos?.includes(m.key) ?? false}
+                              onChange={() => toggleModulo(m.key)}
+                              size="small"
+                            />
+                          }
+                          label={<Typography variant="body2">{m.label}</Typography>}
+                        />
+                      ))}
+                    </FormGroup>
+                    <FormGroup>
+                      {MODULOS.slice(6).map(m => (
+                        <FormControlLabel
+                          key={m.key}
+                          control={
+                            <Checkbox
+                              checked={form.permisos?.includes(m.key) ?? false}
+                              onChange={() => toggleModulo(m.key)}
+                              size="small"
+                            />
+                          }
+                          label={<Typography variant="body2">{m.label}</Typography>}
+                        />
+                      ))}
+                    </FormGroup>
+                  </Box>
+                )}
+              </Box>
+            </>
+          )}
         </DialogContent>
 
         <DialogActions sx={{ px: 3, pb: 2 }}>
